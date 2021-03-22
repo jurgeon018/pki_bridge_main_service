@@ -1,0 +1,73 @@
+Name                                                  VLanID
+
+DPortGroup
+DS-vSANTest-DVUplinks-183257
+EDMZ1-VLAN_64-10.30.26.64_27                          64
+EDMZ2-VLAN_96-10.30.26.96_27                          96
+EDMZ3-VLAN_48-10.30.248.0_24                          48
+EDMZ-VLAN_2126-10.20.126.0_23-IP-PLUS-SWISSCOM        2126
+FFDMZ-VLAN_800-10.30.250.0_24                         800
+FRPAR2_LAN                                            0
+HKHKG_LAN                                             0
+IDMZ1-VLAN_128-10.30.226.0_24                         0
+IDMZ2-VLAN_160-10.30.227.0_24                         160
+IDMZ2-VLAN_160-10.30.26.160_27                        160
+IDMZ3-VLAN_48-10.30.202.0_23_DMZAUTH                  48
+IDMZ-VLAN_2226-10.20.226.0_23-IP-PLUS-SWISSCOM        2226
+INTDMZ-VLAN_129-10.40.226.0_24-EB-LTQ-NONPROD         129
+INTDMZ-VLAN_130-10.50.226.0_24-EB-LTQ-PROD            130
+Internet                                              0
+Management Network
+NFS                                                   132
+SGSIN_LAN                                             0
+TRUST_VLAN_0-10.108.0.11_24                           0
+TRUST-SOPHIS-UAT-DVUplinks-74449
+TRUST-VLAN_0-10.106.192.0_24                          0
+TRUST-VLAN_0-10.109.0.0_25                            0
+TRUST-VLAN_0-10.4.21.0_25                             0
+TRUST-VLAN_10-10.110.10.0_24_Bastion_MGMT             10
+TRUST-VLAN_110-10.30.110.0_23                         110
+TRUST-VLAN_110-10.30.110.0_23_TFPROD                  110
+TRUST-VLAN_138-10.30.138.0_24                         138
+TRUST-VLAN_190-10.30.190.0_23                         190
+TRUST-VLAN_192-10.30.192.0_21                         192
+TRUST-VLAN_200-10.30.200.0_23                         200
+TRUST-VLAN_201-10.30.100.0_22                         201
+TRUST-VLAN_202-10.30.202.0_23                         202
+TRUST-VLAN_202-10.30.202.0_23_CLOUDSTACK              202
+TRUST-VLAN_208-10.40.200.0_23-EB-LTQ-NONPROD-PLATFORM 208
+TRUST-VLAN_209-10.50.200.0_23-EB-LTQ-PROD-PLATFORM    209
+TRUST-VLAN_210-10.30.210.0_24                         210
+TRUST-VLAN_211-10.30.211.0_24                         211
+TRUST-VLAN_212-10.30.212.0_24                         212
+TRUST-VLAN_213-10.30.213.0_24                         213
+TRUST-VLAN_214-10.30.214.0_24                         214
+TRUST-VLAN_217-10.30.217.0_24                         217
+TRUST-VLAN_218-10.30.218.0_24                         218
+TRUST-VLAN_218-10.30.218.0_24-SOPHIS7-UAT
+TRUST-VLAN_219-10.30.219.0_24_SIT72                   219
+TRUST-VLAN_22-10.30.22.0_23                           22
+TRUST-VLAN_221-10.30.221.0_24_SP7_DEV                 221
+TRUST-VLAN_230-10.230.0.0_24                          230
+TRUST-VLAN_238-10.30.238.0_24                         238
+TRUST-VLAN_28-10.30.28.0_25                           28
+TRUST-VLAN_29-10.30.28.128_25                         29
+TRUST-VLAN_32-10.30.32.0_24                           32
+TRUST-VLAN_37-10.103.31.0_25                          0
+TRUST-VLAN_37-10.105.0.0_25                           0
+TRUST-VLAN_37-10.106.64.0_26                          0
+TRUST-VLAN_39-10.30.29.0_24                           39
+TRUST-VLAN_47-10.30.47.0_24                           47
+TRUST-VLAN_52_10.30.52.0_22                           52
+TRUST-VLAN_72_10.30.72.0_22                           72
+TRUST-VLAN_92_10.30.92.0_22                           92
+TRUST-VLAN_95-10.30.95.0_24                           95
+TRUST-VLAN104-10.104.128.0_25                         0
+UC-200                                                200
+UC-201                                                201
+VM Network                                            0
+vMotion                                               133
+vmotion                                               133
+vMotion41                                             41
+VSANTraffic
+Wireshark                                             0

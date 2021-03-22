@@ -1,0 +1,106 @@
+[
+    {
+        "name": "listtemplates",
+        "description": "There are different templates to use; they come with different attributes",
+        "url": "/api/v1/listtemplates/",
+        "allowed_requests": 30,
+        "is_active": true,
+        "reset_period": 1
+    },
+    {
+        "name": "pingca",
+        "description": "If having trouble with getting certificate, check if inssuing CA is available",
+        "url": "/api/v1/pingca/",
+        "allowed_requests": 30,
+        "is_active": true,
+        "reset_period": 1
+    },
+    {
+        "name": "addnote",
+        "description": "???",
+        "url": "/api/v1/addnote/",
+        "allowed_requests": 30,
+        "is_active": true,
+        "reset_period": 1
+    },
+    {
+        "name": "signcert",
+        "description": "To get the certificate signed by the CA intermediary, we have to send the CSR file (via -F option), give requester's email address and which template to us; if you need to add alternative names, it may be possible to add them here",
+        "url": "/api/v1/signcert/",
+        "allowed_requests": 30,
+        "is_active": true,
+        "reset_period": 1
+    },
+    {
+        "name": "getcert",
+        "description": "Pull the cert from the database",
+        "url": "/api/v1/getcert/",
+        "allowed_requests": 30,
+        "is_active": true,
+        "reset_period": 1
+    },
+    {
+        "name": "getcacert",
+        "description": "Pull the cert from the database",
+        "url": "/api/v1/getcacert/",
+        "allowed_requests": 30,
+        "is_active": true,
+        "reset_period": 1
+    },
+    {
+        "name": "getintermediarycert",
+        "description": "Pull the cert from the database",
+        "url": "/api/v1/getintermediarycert/",
+        "allowed_requests": 30,
+        "is_active": true,
+        "reset_period": 1
+    },
+    {
+        "name": "getcacertchain",
+        "description": "Pull the cert from the database",
+        "url": "/api/v1/getcacertchain/",
+        "allowed_requests": 30,
+        "is_active": true,
+        "reset_period": 1
+    },
+    {
+        "name": "listcommands",
+        "description": "Lists available commands",
+        "url": "/api/v1/listcommands/",
+        "allowed_requests": 30,
+        "is_active": true,
+        "reset_period": 1
+    },
+    {
+        "name":"get_help",
+        "description":"shows help with particular ocmmand",
+        "url": "/api/v1/get_help/",
+        "allowed_requests": 30,
+        "is_active": true,
+        "reset_period": 1
+    },
+    {
+        "name": "createkeyandcsr",
+        "description": "???",
+        "url": "/api/v1/createkeyandcsr/",
+        "allowed_requests": 30,
+        "is_active": true,
+        "reset_period": 1
+    },
+    {
+        "name": "createkeyandsign",
+        "description": "???",
+        "url": "/api/v1/createkeyandsign/",
+        "allowed_requests": 30,
+        "is_active": true,
+        "reset_period": 1
+    },
+    {
+        "name": "trackurl",
+        "description": "???",
+        "url": "/api/v1/trackurl/",
+        "allowed_requests": 30,
+        "is_active": true,
+        "reset_period": 1
+    }
+]

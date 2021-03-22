@@ -1,0 +1,14 @@
+LeonteqWebSrvManualEnroll: LeonteqWebSrvManualEnroll
+LeonteqILOManualEnrollment: LeonteqILOManualEnrollment
+LeonteqServerManualEnroll: LeonteqServerManualEnroll
+LeonteqSCEPJamfEnroll: LeonteqSCEPJamfEnroll
+LeonteqClientAutoEnroll: LeonteqClientAutoEnroll
+LeonteqSCEPIntuneEnroll: LeonteqSCEPIntuneEnroll
+LeonteqSCEPClient: LeonteqSCEPClient
+CEPEncryption: CEP Encryption
+IPSECIntermediateOffline: IPSec (Offline request)
+EnrollmentAgentOffline: Exchange Enrollment Agent (Offline request)
+DirectoryEmailReplication: Directory Email Replication
+DomainControllerAuthentication: Domain Controller Authentication
+KerberosAuthentication: Kerberos Authentication
+DomainController: Domain Controlle

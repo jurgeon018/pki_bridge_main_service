@@ -1,0 +1,22 @@
+[
+    {
+        "host": "google.com",
+        "contacts": "andrey.mendela@leonteq.com"
+    },
+    {
+        "host": "facebook.com",
+        "contacts": "andrey.mendela@leonteq.com"
+    },
+    {
+        "host": "youtube.com",
+        "contacts": "andrey.mendela@leonteq.com"
+    },
+    {
+        "host": "twitter.com",
+        "contacts": "andrey.mendela@leonteq.com"
+    },
+    {
+        "host": "spotify.com",
+        "contacts": "andrey.mendela@leonteq.com"
+    }
+]

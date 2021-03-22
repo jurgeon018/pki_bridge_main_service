@@ -1,0 +1,5 @@
+[MASTER]
+ignore=migrations
+max-line-length=120
+max-parents=15
+

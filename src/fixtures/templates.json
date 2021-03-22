@@ -1,0 +1,58 @@
+[
+    {
+        "name": "LeonteqWebSrvManualEnroll",
+        "description": "LeonteqWebSrvManualEnroll"
+    },
+    {
+        "name": "LeonteqILOManualEnrollment",
+        "description": "LeonteqILOManualEnrollment"
+    },
+    {
+        "name": "LeonteqServerManualEnroll",
+        "description": "LeonteqServerManualEnroll"
+    },
+    {
+        "name": "LeonteqSCEPJamfEnroll",
+        "description": "LeonteqSCEPJamfEnroll"
+    },
+    {
+        "name": "LeonteqClientAutoEnroll",
+        "description": "LeonteqClientAutoEnroll"
+    },
+    {
+        "name": "LeonteqSCEPIntuneEnroll",
+        "description": "LeonteqSCEPIntuneEnroll"
+    },
+    {
+        "name": "LeonteqSCEPClient",
+        "description": "LeonteqSCEPClient"
+    },
+    {
+        "name": "CEPEncryption",
+        "description": "CEP Encryption"
+    },
+    {
+        "name": "IPSECIntermediateOffline",
+        "description": "IPSec (Offline request)"
+    },
+    {
+        "name": "EnrollmentAgentOffline",
+        "description": "Exchange Enrollment Agent (Offline request)"
+    },
+    {
+        "name": "DirectoryEmailReplication",
+        "description": "Directory Email Replication"
+    },
+    {
+        "name": "DomainControllerAuthentication",
+        "description": "Domain Controller Authentication"
+    },
+    {
+        "name": "KerberosAuthentication",
+        "description": "Kerberos Authentication"
+    },
+    {
+        "name": "DomainController",
+        "description": "Domain Controlle"
+    }
+]
