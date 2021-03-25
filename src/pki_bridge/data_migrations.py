@@ -82,7 +82,7 @@ class Migration(migrations.Migration):
         migrations.RunPython(migrate_commands),
         migrations.RunPython(migrate_templates),
         migrations.RunPython(migrate_networks),
-        # migrations.RunPython(migrate_hosts),
+        migrations.RunPython(migrate_hosts),
         # TODO: migrate_settings
         # migrations.RunPython(migrate_settings),
         # TODO: migrate_user

@@ -172,7 +172,7 @@ def gen_networks(
     with open(path) as f:
         networks = json.load(f)
     for i, json_network in enumerate(networks):
-        print(f'{i+1} of {len(networks)}')
+        print(f'Network {i+1} of {len(networks)}')
         if not Network.objects.filter(
             ip=json_network['ip'],
             mask=json_network['mask'],
@@ -191,31 +191,33 @@ def gen_hosts(
     Host=Host,
     Network=Network,
         ):
+    print('gen hosts!!!!!!!!!!!!!!!!!!!!!!!')
     Host.objects.all().delete()
     hosts = []
-    path = BASE_DIR / 'fixtures' / 'hosts.json'
-    with open(path, 'r') as f:
-        json_hosts = json.load(f)
-    for i, json_host in enumerate(json_hosts):
-        # print(json_host)
-        print(f'{i+1} of {len(json_hosts)}')
-        hosts.append(Host(**{
-            "network": None,
-            "host": json_host['host'],
-            "contacts": json_host['contacts'],
-        }))
-        
+    # # test hosts
+    # path = BASE_DIR / 'fixtures' / 'hosts.json'
+    # with open(path, 'r') as f:
+    #     json_hosts = json.load(f)
+    # for i, json_host in enumerate(json_hosts):
+    #     print(f'json host {i+1} of {len(json_hosts)}')
+    #     hosts.append(Host(**{
+    #         "network": None,
+    #         "host": json_host['host'],
+    #         "contacts": json_host['contacts'],
+    #     }))
+    # real hosts
     path = BASE_DIR / 'fixtures' / 'networks.json'
     with open(path, 'r') as f:
         json_networks = json.load(f)
     for i, json_network in enumerate(json_networks):
-        # print(json_network)
-        print(f'{i+1} of {len(json_networks)}')
+        print(f'Network {i+1} of {len(json_networks)}')
         network = Network.objects.get(
             ip=json_network['ip'],
             mask=json_network['mask'],
         )
-        for i, json_host in enumerate(json_network['hosts']):
+        for j, json_host in enumerate(json_network['hosts']):
+            print(f"Host {j+1} of {len(json_network['hosts'])} of network {i+1}")
+            # print("json_host: ", json_host)
             hosts.append(Host(
                 host=json_host['host'],
                 network=network,

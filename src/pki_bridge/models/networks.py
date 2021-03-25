@@ -23,7 +23,7 @@ class Network(TimeMixin, ActiveMixin, AuthorMixin):
 
 class Host(TimeMixin, ActiveMixin, AuthorMixin):
     network = models.ForeignKey(to='pki_bridge.Network', on_delete=models.SET_NULL, blank=True, null=True, related_name="hosts")
-    host = models.CharField(max_length=255, unique=True, db_index=True)
+    host = models.CharField(max_length=255, db_index=True)
     contacts = models.CharField(max_length=255, blank=True, null=True)
     last_scan = models.OneToOneField(to='pki_bridge.Scan', on_delete=models.SET_NULL, null=True, blank=True, related_name='last_host')
 

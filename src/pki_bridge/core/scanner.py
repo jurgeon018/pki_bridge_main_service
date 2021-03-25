@@ -1,8 +1,10 @@
+import threading
 from django.utils import timezone
 from django.conf import settings
 from django.core.mail import send_mail
 from django.urls import reverse
 from django.contrib.sites.models import Site
+from django.core.paginator import Paginator
 
 from threading import Thread
 import socket
@@ -19,13 +21,14 @@ from pki_bridge.core.utils import (
     run,
 )
 from pki_bridge.models import (
-    Network,
+    # Network,
     Scan,
     Host,
 )
 
 
 logger = logging.getLogger(__name__)
+
 # SCAN_TIMEOUT = 120
 SCAN_TIMEOUT = 2
 
@@ -37,7 +40,6 @@ def get_openssl_version():
             'version',
         ]
         openssl_version = run(args).decode('utf-8')
-        # openssl_version = os.system('openssl version')
     except Exception as e:
         openssl_version = None
     return openssl_version
@@ -83,29 +85,19 @@ def get_pem(host, port):
 # https://gist.github.com/gdamjan/55a8b9eec6cf7b771f92021d93b87b2c
 
 
-# def scan_network():
-#     hosts = Host.objects.filter(is_active=True)
-#     ports = [
-#         443,
-#     ]
-#     for host in hosts:
-#         scan_host(host, ports)
-
-
 def scan_network():
     start = time()
-    # networks = Network.objects.filter(is_active=True)
-    ports = [
-        443,
-        8081,
-        8443,
-        8083,
-    ]
+
     threads = []
     hosts = Host.objects.filter(is_active=True)
     hosts = hosts[10:40]
-    for host in hosts:
-        thread = Thread(target=scan_host, args=[host, ports])
+
+    per_page = 8
+    paginated_hosts = Paginator(hosts, per_page=per_page)
+    page_numbers = paginated_hosts.page_range
+    for page_number in page_numbers:
+        hosts_page = paginated_hosts.page(page_number)
+        thread = Thread(target=scan_page, args=[hosts_page])
         thread.start()
         threads.append(thread)
     for thread in threads:
@@ -115,9 +107,20 @@ def scan_network():
     print(f'{len(hosts)} hosts has been scanned in {end} seconds.')
 
 
-def scan_host(host, ports):
+def scan_page(hosts_page):
+    for host in hosts_page:
+        scan_host(host)
+
+
+def scan_host(host):
+    ports = [
+        443,
+        8081,
+        8443,
+        8083,
+    ]
     try:
-        socket.gethostbyname(host)
+        socket.gethostbyname(host.host)
     except socket.gaierror as e:
         msg = f'Host {host} doesnt exist. Error: {e}'
         print(msg)
@@ -126,7 +129,8 @@ def scan_host(host, ports):
     for port in ports:
         result = SSLChecker().show_result(host.host, port)
         # print()
-        print(f"{host}:{port} result: ", result)
+        if result != {}:
+            print(f"{host}:{port} result: {result}. {threading.currentThread()}")
         # print()
         # pem = get_pem(host.host, port)
         # cert = decode_pem_into_cert(pem)
@@ -136,6 +140,8 @@ def scan_host(host, ports):
         # print()
         # scan = create_scan(host, result, pem, cert)
         # mail_admins(host, result, scan)
+
+
 
 
 def create_scan(host, result, pem, cert):
