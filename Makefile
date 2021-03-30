@@ -32,7 +32,7 @@ curl_signcert:
 		-F "requester=andrey.mendela@leonteq.com" \
 		-F "template=LeonteqWebSrvManualEnroll" \
 		-F "SAN=altname1, altname2, altname3" \
-		-F "note=note" \
+		-F "note=note test example" \
 		-F "env=env" \
 		-F "certformat=pem" \
 		-F "csr=@src/test_data/pki_test.csr" \
@@ -108,11 +108,10 @@ prep_db:
 
 
 clear:
-	rm src/db.sqlite3
-	find ./src/ -path "*/migrations/*.py" -not -name "__init__.py" -delete
-	find ./src/ -path "*/migrations/*.pyc"  -delete
-	python3 ./src/manage.py makemigrations
-	python3 ./src/manage.py migrate 
+	make rmdb
+	make rmmig
+	make mm
+	make m
 
 # django
 
@@ -136,7 +135,6 @@ r0:
 	python3 ./src/manage.py runserver 0.0.0.0:8000 --insecure
 
 # tests
-
 
 tests:
 	python3 src/manage.py test pki_bridge.tests
@@ -167,7 +165,7 @@ run_celery_beat:
 # db 
 
 rmdb:
-	rm src/db.sqlite3
+	make delete_sqlite_db
 	# make delete_postgres_db
 	# make create_postgres_db
 

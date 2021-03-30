@@ -1,0 +1,17 @@
+[Unit]
+Description=uWSGI Emperor service
+
+[Service]
+ExecStartPre=/bin/bash -c 'mkdir -p /home/menan/projects/pki_bridge_main_service/deploy_configs; chown menan:www-data /home/menan/projects/pki_bridge_main_service/deploy_configs'
+ExecStart=/home/menan/.local/bin/uwsgi --emperor /home/menan/projects/pki_bridge_main_service/deploy_configs 
+Restart=always
+KillSignal=SIGQUIT
+Type=notify
+NotifyAccess=all
+
+[Install]
+WantedBy=multi-user.target 
+
+
+
+

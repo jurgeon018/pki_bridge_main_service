@@ -12,19 +12,23 @@ from django.http import HttpResponse
 from django.core.mail import send_mail
 from django.conf import settings
 
+
 def index(request):
-    send_mail(
+    x = send_mail(
         'sdf',
         'sdf',
         settings.DEFAULT_FROM_EMAIL,
         [
-            'jurgeon018@gmail.com',
+            # 'jurgeon018@gmail.com',
             'andrey.mendela@leonteq.com',
             'menan@leonteq.com',
         ],
         fail_silently=False
     )
+    print(x)
+    print(type(x))
     return HttpResponse('s')
+
 
 api_urls = [
     path("listtemplates/", views.listtemplates, name='listtemplates'),

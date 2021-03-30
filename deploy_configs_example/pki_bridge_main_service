@@ -1,0 +1,16 @@
+server{
+    server_name 10.30.214.185;
+    listen 8015;
+    location /media {
+        alias /home/menan/projects/pki_bridge_main_service/src/media;
+    }
+    location /static {
+        alias /home/menan/projects/pki_bridge_main_service/src/static_root;
+    }
+    location / {
+        uwsgi_pass unix:/home/menan/projects/pki_bridge_main_service/deploy_configs/pki_bridge_main_service.sock;
+        include /etc/nginx/uwsgi_params;
+    }
+
+}
+

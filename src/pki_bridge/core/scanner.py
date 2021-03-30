@@ -131,17 +131,17 @@ def scan_host(host):
         # print()
         if result != {}:
             print(f"{host}:{port} result: {result}. {threading.currentThread()}")
+        if result == {}:
+            continue
         # print()
-        # pem = get_pem(host.host, port)
-        # cert = decode_pem_into_cert(pem)
+        pem = get_pem(host.host, port)
+        cert = decode_pem_into_cert(pem)
         # print()
         # print(cert)
         # print(host)
         # print()
-        # scan = create_scan(host, result, pem, cert)
+        scan = create_scan(host, result, pem, cert)
         # mail_admins(host, result, scan)
-
-
 
 
 def create_scan(host, result, pem, cert):

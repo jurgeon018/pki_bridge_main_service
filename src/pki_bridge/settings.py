@@ -115,8 +115,8 @@ ALLOW_USE_FILE_AS_LDAP_RESULTS = config('ALLOW_USE_FILE_AS_LDAP_RESULTS', cast=b
 
 # mail
 
-EMAIL_BACKEND = 'pki_bridge.backends.ConfiguredEmailBackend'
-# EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+# EMAIL_BACKEND = 'pki_bridge.backends.ConfiguredEmailBackend'
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_SUBJECT_PREFIX = '[Pki bridge]'
 EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD')
 # EMAIL_HOST_USER = 'menan@leonteq.com'

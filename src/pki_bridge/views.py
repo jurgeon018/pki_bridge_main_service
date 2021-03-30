@@ -160,8 +160,8 @@ def signcert(request):
         return HttpResponse(response)
     else:
         schema = 'http'
-        # host = '127.0.0.1'
-        host = '10.30.214.185'
+        host = '127.0.0.1'
+        # host = '10.30.214.185'
         
         port = '5002'
         url = '/submit'

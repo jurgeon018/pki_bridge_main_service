@@ -49,9 +49,9 @@ from pki_bridge.core.utils import (
 
 
 def perform_ldap_search(ldap_username, ldap_password, attributes=['sAMAccountName', 'mail', ]):
-    base_dn = 'dc=fpprod,dc=corp'
     # group = 'cn=FpprodLdap,ou=Service Accounts,ou=Delegation,dc=fpprod,dc=corp'
     # group = 'cn=domain users,ou=users,dc=fpprod,dc=corp'
+    base_dn = 'dc=fpprod,dc=corp'
     args = [
         '/usr/bin/ldapsearch',
         '-LLL', '-H', 'ldap://fpprod.corp', '-x',
