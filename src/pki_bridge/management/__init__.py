@@ -38,19 +38,32 @@ def gen_readonly_group(
             if permission.codename.startswith('view'):
                 new_group.permissions.add(permission)
 
+from django.contrib.auth.hashers import make_password
 
 def gen_user(
     ProjectUser=ProjectUser,
         ):
-    user = ProjectUser.objects.create(
-        username='admin',
-        email='admin@example.com',
-    )
-    user.set_password('admin')
-    user.is_staff = True
-    user.is_active = True
-    user.is_superuser = True
-    user.save()
+    users_json = [
+        {
+            'username': 'admin',
+            'email': 'admin@example.com',
+            'password': 'admin',
+        },
+        {
+            'username': 'andrey.mendela',
+            'email': 'andrey.mendela@leonteq.com',
+            'password': 'admin',
+        },
+    ]
+    for user_json in users_json:
+        ProjectUser.objects.create(
+            username=user_json['username'],
+            email=user_json['email'],
+            password=make_password(user_json['password']),
+            is_staff=True,
+            is_active=True,
+            is_superuser=True,
+        )
 
 
 def update_templates(

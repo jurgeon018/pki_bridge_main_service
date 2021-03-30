@@ -85,6 +85,5 @@ class Migration(migrations.Migration):
         migrations.RunPython(migrate_hosts),
         # TODO: migrate_settings
         # migrations.RunPython(migrate_settings),
-        # TODO: migrate_user
-        # migrations.RunPython(migrate_user),
+        migrations.RunPython(migrate_user),
     ]

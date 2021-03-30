@@ -99,8 +99,6 @@ prep_db:
 	make mm
 	make cpdatamig
 	make m
-	# TODO: move gen_user to data migration
-	make gen_user
 	# TODO: move gen_settings to data migration
 	make gen_settings
 	# make set_domain_name

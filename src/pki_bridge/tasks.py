@@ -6,7 +6,9 @@ from pki_bridge.core.scanner import scan_network
 
 @periodic_task(run_every=timedelta(minutes=1))
 def celery_scan_network_periodically():
-    celery_scan_network.delay()
+    print(f'celery_scan_network_periodically started in {datetime.now()}')
+    # celery_scan_network.delay()
+    return f'celery_scan_network_periodically started in {datetime.now()}'
 
 
 @shared_task
