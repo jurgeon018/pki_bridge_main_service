@@ -47,19 +47,20 @@ curl_addnote:
 
 
 curl_getcert:
-	curl http://127.0.0.1:8000/api/v1/getcert/1/
+	curl http://127.0.0.1:8000/api/v1/getcert/1/?cert_format=json
 
 
 curl_getcacert:
-	curl http://127.0.0.1:8000/api/v1/getcacert/
+	curl http://127.0.0.1:8000/api/v1/getcacert/?cert_format=json
 
 
 curl_getintermediarycert:
-	curl http://127.0.0.1:8000/api/v1/getintermediarycert/
+	# curl http://127.0.0.1:8000/api/v1/getintermediarycert/?cert_format=text
+	curl http://127.0.0.1:8000/api/v1/getintermediarycert/?cert_format=json
 
 
 curl_getcacertchain:
-	curl http://127.0.0.1:8000/api/v1/getcacertchain/
+	curl http://127.0.0.1:8000/api/v1/getcacertchain/?cert_format=text
 
 
 # management

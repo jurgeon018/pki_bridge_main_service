@@ -1,7 +1,7 @@
 from celery import shared_task
 from celery.task import periodic_task
 from datetime import datetime, timedelta
-from pki_bridge.core.scanner import scan_network
+from pki_bridge.core.scanner import Scanner
 
 
 @periodic_task(run_every=timedelta(minutes=1))
@@ -13,7 +13,7 @@ def celery_scan_network_periodically():
 
 @shared_task
 def celery_scan_network():
-    scan_network()
+    Scanner().scan_network()
 
 
 # from celery.schedules import crontab

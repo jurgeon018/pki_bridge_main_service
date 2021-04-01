@@ -65,6 +65,7 @@ class EmailSettingsFieldsMixin(models.Model):
 
 
 class PkiFieldsMixin(models.Model):
+    scan_timeout = models.IntegerField(default=2)
     update_templates_from_ca = models.BooleanField(default=False)
     ldap_username = models.CharField(max_length=255, blank=True, null=True)
     ldap_password = models.CharField(max_length=255, blank=True, null=True)
@@ -84,6 +85,7 @@ class PkiFieldsMixin(models.Model):
         self.update_templates_from_ca = settings.UPDATE_TEMPLATES_FROM_CA
         self.ldap_username = settings.LDAP_USERNAME
         self.ldap_password = settings.LDAP_PASSWORD
+        self.scan_timeout = settings.SCAN_TIMEOUT
         self.allowed_requests = settings.ALLOWED_REQUESTS
         self.reset_period = settings.RESET_PERIOD
         self.allow_use_file_as_ldap_results = settings.ALLOW_USE_FILE_AS_LDAP_RESULTS

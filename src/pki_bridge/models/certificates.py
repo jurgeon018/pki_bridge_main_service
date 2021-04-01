@@ -26,7 +26,6 @@ class CertificateRequest(TimeMixin, AuthorMixin):
     template = models.TextField()
     domain = models.TextField()
 
-
     def __str__(self):
         return f'{self.email}'
 

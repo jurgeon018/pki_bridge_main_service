@@ -112,7 +112,7 @@ ALLOWED_REQUESTS = config('ALLOWED_REQUESTS', cast=int)
 RESET_PERIOD = config('RESET_PERIOD', cast=int)
 UPDATE_TEMPLATES_FROM_CA = config('UPDATE_TEMPLATES_FROM_CA', cast=bool)
 ALLOW_USE_FILE_AS_LDAP_RESULTS = config('ALLOW_USE_FILE_AS_LDAP_RESULTS', cast=bool)
-
+SCAN_TIMEOUT = config('SCAN_TIMEOUT', cast=int)
 # mail
 
 # EMAIL_BACKEND = 'pki_bridge.backends.ConfiguredEmailBackend'

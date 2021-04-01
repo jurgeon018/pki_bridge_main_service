@@ -8,28 +8,6 @@ from pki_bridge import views
 # https://stackoverflow.com/questions/1596552/django-urls-without-a-trailing-slash-do-not-redirect
 
 
-from django.http import HttpResponse
-from django.core.mail import send_mail
-from django.conf import settings
-
-
-def index(request):
-    x = send_mail(
-        'sdf',
-        'sdf',
-        settings.DEFAULT_FROM_EMAIL,
-        [
-            # 'jurgeon018@gmail.com',
-            'andrey.mendela@leonteq.com',
-            'menan@leonteq.com',
-        ],
-        fail_silently=False
-    )
-    print(x)
-    print(type(x))
-    return HttpResponse('s')
-
-
 api_urls = [
     path("listtemplates/", views.listtemplates, name='listtemplates'),
     path("pingca/", views.pingca, name='pingca'),
@@ -48,9 +26,9 @@ api_urls = [
 ]
 
 urlpatterns = [
-    path('', index),
     path('admin/', admin.site.urls),
     path('api/v1/', include(api_urls)),
+    path('test_mail/', views.test_mail, name='test_mail'),
 ]
 
 if settings.DEBUG:

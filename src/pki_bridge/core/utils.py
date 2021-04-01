@@ -1,5 +1,26 @@
 import subprocess
 from django.urls import reverse
+import logging
+
+
+logger = logging.getLogger(__name__)
+
+def set_openssl_version():
+    openssl_version = get_openssl_version()
+    msg = f'Version of openssl is: "{openssl_version}"'
+    logger.info(msg)
+
+
+def get_openssl_version():
+    try:
+        args = [
+            'openssl',
+            'version',
+        ]
+        openssl_version = run(args).decode('utf-8')
+    except Exception as e:
+        openssl_version = None
+    return openssl_version
 
 
 def run(args):
