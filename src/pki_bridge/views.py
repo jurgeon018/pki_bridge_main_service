@@ -4,6 +4,7 @@ from django.conf import settings
 from django.utils import timezone
 
 from rest_framework.decorators import api_view
+from decouple import config
 
 import subprocess
 import requests
@@ -28,6 +29,10 @@ from pki_bridge.models import (
 )
 
 BASE_DIR = settings.BASE_DIR
+WINDOWS_SCHEMA = config('WINDOWS_SCHEMA')
+WINDOWS_HOST = config('WINDOWS_HOST')
+WINDOWS_PORT = config('WINDOWS_PORT')
+WINDOWS_URL = f'{WINDOWS_SCHEMA}://{WINDOWS_HOST}:{WINDOWS_PORT}'
 
 
 @api_view(['POST', 'GET'])
@@ -40,17 +45,8 @@ def listtemplates(request):
 
 @api_view(['POST', 'GET'])
 def pingca(request):
-    try:
-        command = 'certutil -ping -config "CHVIRPKIPRD103.fpprod.corp\Leonteq Class 3 Issuing CA"'
-        result = subprocess.call(command)
-        if result:
-            response = 'Issuing CA is alive.\n'
-        else:
-            response = 'Issuing CA is dead.\n'
-    except FileNotFoundError:
-        response = 'Cannot use certutil.\n'
-    except Exception:
-        response = 'Issuing CA is dead.\n'
+    url = f'{WINDOWS_URL}/pingca'
+    response = requests.get(url)
     return HttpResponse(response)
 
 
@@ -159,13 +155,7 @@ def signcert(request):
         response = f'Email "{requester}" is not in ldap.\n'
         return HttpResponse(response)
     else:
-        schema = 'http'
-        host = '127.0.0.1'
-        # host = '10.30.214.185'
-        
-        port = '5002'
-        url = '/submit'
-        url = f'{schema}://{host}:{port}{url}'
+        url = f'{WINDOWS_URL}/submit'
         data = {
             "secret_key": "windows_service_69018",
             'csr': csr,

@@ -3,14 +3,13 @@ from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.auth.models import Group, Permission
 
+from decouple import config
 import json
 import logging
 import ipaddress
 import re
+import requests
 
-from pki_bridge.core.utils import (
-    run,
-)
 from pki_bridge.models import (
     Command,
     Template,
@@ -69,13 +68,16 @@ def gen_user(
 def update_templates(
     Template=Template,
         ):
+    WINDOWS_SCHEMA = config('WINDOWS_SCHEMA')
+    WINDOWS_HOST = config('WINDOWS_HOST')
+    WINDOWS_PORT = config('WINDOWS_PORT')
+    WINDOWS_URL = f'{WINDOWS_SCHEMA}://{WINDOWS_HOST}:{WINDOWS_PORT}'
+
     try:
-        command = r'certutil -config "CHVIRPKIPRD103.fpprod.corp\Leonteq Class 3 Issuing CA" -CATemplates'
-        certutil_msg = 'CertUtil: -CATemplates command completed successfully.'
-        results = run(command)
-        results = results.decode('utf-8')
-        results = results.replace(certutil_msg, '')
-        results = results.split('\n')
+        url = f'{WINDOWS_URL}/get_templates'
+        results = requests.get(url)
+        results = results.json()
+        results = results['results']
     except Exception:
         path = BASE_DIR / 'fixtures' / 'templates.txt'
         with open(path) as f:
