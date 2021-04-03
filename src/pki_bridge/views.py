@@ -33,6 +33,7 @@ from pki_bridge.models import (
 )
 
 BASE_DIR = settings.BASE_DIR
+WINDOWS_SECRET_KEY = "windows_service_69018"
 WINDOWS_SCHEMA = config('WINDOWS_SCHEMA')
 WINDOWS_HOST = config('WINDOWS_HOST')
 WINDOWS_PORT = config('WINDOWS_PORT')
@@ -95,7 +96,7 @@ def signcert(request):
     else:
         url = f'{WINDOWS_URL}/submit'
         data = {
-            "secret_key": "windows_service_69018",
+            "secret_key":  WINDOWS_SECRET_KEY,
             'csr': csr,
             'domain': domain,
             'template': template,
@@ -114,7 +115,7 @@ def signcert(request):
             response = response.json()
             if status_code == 200:
                 certificate = response['certificate']
-                # TODO: save info about issuer, subject, notvalidafter, notvalidbefore
+                # TODO: read certificate with converter and save info about issuer, subject, notvalidafter, notvalidbefore
                 certificate_request = CertificateRequest.objects.create(
                     email=requester,
                     note=note,

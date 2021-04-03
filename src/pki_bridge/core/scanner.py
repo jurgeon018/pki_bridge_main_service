@@ -24,6 +24,7 @@ from pki_bridge.core.converter import (
 )
 from pki_bridge.models import (
     # Network,
+    CertificateRequest,
     Scan,
     Host,
 )
@@ -31,50 +32,59 @@ from pki_bridge.models import (
 
 logger = logging.getLogger(__name__)
 
-# SCAN_TIMEOUT = 120
-# SCAN_TIMEOUT = 2
-SCAN_TIMEOUT = db_settings.scan_timeout
-
-
-# https://www.google.com/search?q=openssl+get+certificate+info+from+website
-# https://www.sslshopper.com/article-most-common-openssl-commands.html
-# https://stackoverflow.com/questions/7885785/using-openssl-to-get-the-certificate-from-a-server
-# https://gist.github.com/gdamjan/55a8b9eec6cf7b771f92021d93b87b2c
 
 class Scanner:
-
-    def get_pem_of_host(self, host, port):
-        # TODO: convert pyopenssl x509\cert\ssl object to pem string
-        # https://stackoverflow.com/questions/9796694/pyopenssl-convert-certificate-object-to-pem-file
-        args = [
-            "openssl",
-            "s_client",
-            "-connect",
-            f'{host}:{port}',
-        ]
-        begin = '-----BEGIN CERTIFICATE-----\n'
-        end = '\n-----END CERTIFICATE-----'
-        pem = run(args)
-        # pem = pem.decode('utf-8')
-        pem = pem.split(begin)
-        pem = begin + pem[-1].strip()
-        pem = pem.split(end)
-        pem = pem[0].strip() + end
-        return pem
+    '''
+    Scanner().scan_network()
+    Scanner().get_cert_of_host()
+    Scanner().get_pem_of_host()
+    '''
+    # https://www.google.com/search?q=openssl+get+certificate+info+from+website
+    # https://www.sslshopper.com/article-most-common-openssl-commands.html
+    # https://stackoverflow.com/questions/7885785/using-openssl-to-get-the-certificate-from-a-server
+    # https://gist.github.com/gdamjan/55a8b9eec6cf7b771f92021d93b87b2c
 
     def scan_network(self):
+        self.scan_hosts()
+        self.scan_db_certificates()
+    
+    def scan_db_certificates(self):
+        start = time()
+
+        threads = []
+        certificates = CertificateRequest.objects.filter(is_active=True)
+        certificates = certificates[10:40]
+
+        #  TODO: per_page = db_settings.certificates_per_page
+        per_page = 8
+
+        paginated_certificates = Paginator(certificates, per_page=per_page)
+        page_numbers = paginated_certificates.page_range
+        for page_number in page_numbers:
+            certificates_page = paginated_certificates.page(page_number)
+            thread = Thread(target=self.scan_hosts_page, args=[certificates_page])
+            thread.start()
+            threads.append(thread)
+        for thread in threads:
+            thread.join()
+        end = time() - start
+        print(end)
+        print(f'{len(certificates)} hosts has been scanned in {end} seconds.')
+
+    def scan_hosts(self):
         start = time()
 
         threads = []
         hosts = Host.objects.filter(is_active=True)
         hosts = hosts[10:40]
 
+        # TODO: per_page = db_settings.per_page
         per_page = 8
         paginated_hosts = Paginator(hosts, per_page=per_page)
         page_numbers = paginated_hosts.page_range
         for page_number in page_numbers:
             hosts_page = paginated_hosts.page(page_number)
-            thread = Thread(target=self.scan_page, args=[hosts_page])
+            thread = Thread(target=self.scan_hosts_page, args=[hosts_page])
             thread.start()
             threads.append(thread)
         for thread in threads:
@@ -83,24 +93,30 @@ class Scanner:
         print(end)
         print(f'{len(hosts)} hosts has been scanned in {end} seconds.')
 
-    def scan_page(self, hosts_page):
+    def scan_hosts_page(self, hosts_page):
         for host in hosts_page:
             self.scan_host(host)
 
-    def scan_host(self,host):
-        ports = [
-            443,
-            8081,
-            8443,
-            8083,
-        ]
+    def host_exists(self, host):
         try:
             socket.gethostbyname(host.host)
         except socket.gaierror as e:
             msg = f'Host {host} doesnt exist. Error: {e}'
             print(msg)
             logger.warning(msg)
+            return False
+        return True
+
+    def scan_host(self,host):
+        if not self.host_exists(host):
             return
+        ports = [
+            443,
+            8081,
+            8443,
+            8083,
+        ]
+
         for port in ports:
             result = self.show_result(host.host, port)
             # print()
@@ -234,7 +250,7 @@ class Scanner:
 
     def show_result(self, host, port, analyze=False):
         context = {}
-        cert = self.get_cert(port)
+        cert = self.get_cert_of_host(port)
         if isinstance(cert, crypto.X509):
             context = Converter().pyopenssl_cert_to_json(cert)
             context['host'] = host
@@ -243,7 +259,26 @@ class Scanner:
                 context = self.analyze_ssl(host, context)
         return context
 
-    def get_cert(self, host, port, socks=None):
+    def get_pem_of_host(self, host, port):
+        # TODO: convert pyopenssl x509\cert\ssl object to pem string
+        # https://stackoverflow.com/questions/9796694/pyopenssl-convert-certificate-object-to-pem-file
+        args = [
+            "openssl",
+            "s_client",
+            "-connect",
+            f'{host}:{port}',
+        ]
+        begin = '-----BEGIN CERTIFICATE-----\n'
+        end = '\n-----END CERTIFICATE-----'
+        pem = run(args)
+        # pem = pem.decode('utf-8')
+        pem = pem.split(begin)
+        pem = begin + pem[-1].strip()
+        pem = pem.split(end)
+        pem = pem[0].strip() + end
+        return pem
+
+    def get_cert_of_host(self, host, port, socks=None):
         host = self.filter_hostname(host)
         if socks:
             from pki_bridge.core import socks
@@ -251,6 +286,9 @@ class Scanner:
             socks.setdefaultproxy(socks.PROXY_TYPE_SOCKS5, socks_host, int(port), True)
             socket.socket = socks.socksocket
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        # SCAN_TIMEOUT = 120
+        # SCAN_TIMEOUT = 2
+        SCAN_TIMEOUT = db_settings.scan_timeout
         sock.settimeout(SCAN_TIMEOUT)
         try:
             sock.connect((host, int(port)))
