@@ -16,6 +16,7 @@ from pki_bridge.models import (
     Host,
     Network,
     ProjectUser,
+    AllowedCN,
 )
 
 
@@ -206,36 +207,55 @@ def gen_hosts(
     Host=Host,
     Network=Network,
         ):
-    print('gen hosts!!!!!!!!!!!!!!!!!!!!!!!')
     Host.objects.all().delete()
     hosts = []
-    # # test hosts
-    # path = BASE_DIR / 'fixtures' / 'hosts.json'
-    # with open(path, 'r') as f:
-    #     json_hosts = json.load(f)
-    # for i, json_host in enumerate(json_hosts):
-    #     print(f'json host {i+1} of {len(json_hosts)}')
-    #     hosts.append(Host(**{
-    #         "network": None,
-    #         "host": json_host['host'],
-    #         "contacts": json_host['contacts'],
-    #     }))
+    
+    scan_test = 1
+    # scan_test = 0
+    # scan_real = 1
+    scan_real = 0
+
+    # test hosts
+    if scan_test:
+        path = BASE_DIR / 'fixtures' / 'hosts.json'
+        with open(path, 'r') as f:
+            json_hosts = json.load(f)
+        for i, json_host in enumerate(json_hosts):
+            print(f'json host {i+1} of {len(json_hosts)}')
+            hosts.append(Host(**{
+                "network": None,
+                "name": json_host['host'],
+                "contacts": json_host['contacts'],
+            }))
     # real hosts
-    path = BASE_DIR / 'fixtures' / 'networks.json'
-    with open(path, 'r') as f:
-        json_networks = json.load(f)
-    for i, json_network in enumerate(json_networks):
-        print(f'Network {i+1} of {len(json_networks)}')
-        network = Network.objects.get(
-            ip=json_network['ip'],
-            mask=json_network['mask'],
+    if scan_real:
+        path = BASE_DIR / 'fixtures' / 'networks.json'
+        with open(path, 'r') as f:
+            json_networks = json.load(f)
+        for i, json_network in enumerate(json_networks):
+            print(f'Network {i+1} of {len(json_networks)}')
+            network = Network.objects.get(
+                ip=json_network['ip'],
+                mask=json_network['mask'],
+            )
+            for j, json_host in enumerate(json_network['hosts']):
+                print(f"Host {j+1} of {len(json_network['hosts'])} of network {i+1}")
+                # print("json_host: ", json_host)
+                hosts.append(Host(
+                    host=json_host['host'],
+                    network=network,
+                    contacts=network.contacts,
+                ))
+    if hosts:
+        Host.objects.bulk_create(hosts)
+
+
+def gen_allowed_cn(
+    AllowedCN=AllowedCN,
+        ):
+    AllowedCN.objects.all().delete()
+    cns = settings.ALLOWED_CNS
+    for cn in cns:
+        c = AllowedCN.objects.create(
+            name=cn,
         )
-        for j, json_host in enumerate(json_network['hosts']):
-            print(f"Host {j+1} of {len(json_network['hosts'])} of network {i+1}")
-            # print("json_host: ", json_host)
-            hosts.append(Host(
-                host=json_host['host'],
-                network=network,
-                contacts=network.contacts,
-            ))
-    Host.objects.bulk_create(hosts)

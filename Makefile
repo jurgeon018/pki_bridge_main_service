@@ -87,6 +87,9 @@ gen_hosts:
 gen_networks_json:
 	python3 src/manage.py gen_networks_json
 
+gen_allowed_cn:
+	python3 src/manage.py gen_allowed_cn
+
 gen_settings:
 	python3 src/manage.py gen_settings
 
@@ -102,6 +105,8 @@ prep_db:
 	make m
 	# TODO: move gen_settings to data migration
 	make gen_settings
+	# TODO: move gen_allowed_cn to data migration
+	make gen_allowed_cn
 	# make set_domain_name
 	make r
 

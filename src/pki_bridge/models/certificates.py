@@ -1,6 +1,11 @@
 from django.db import models
 from pki_bridge.models.mixins import TimeMixin, ActiveMixin, AuthorMixin
-
+from pki_bridge.models.settings import AllowedCN
+from pki_bridge.core.converter import Converter
+from pki_bridge.core.utils import make_timezone_aware
+from pki_bridge.conf import db_settings
+from datetime import datetime
+from django.utils import timezone
 
 class Template(TimeMixin, ActiveMixin, AuthorMixin):
     name = models.CharField(unique=True, max_length=255)
@@ -19,19 +24,16 @@ class Template(TimeMixin, ActiveMixin, AuthorMixin):
         verbose_name_plural = 'Templates'
 
 
-class CertificateRequest(TimeMixin, AuthorMixin):
+class Requester(TimeMixin, AuthorMixin):
     email = models.CharField(max_length=255)
-    csr = models.TextField()
-    certificate = models.TextField()
-    template = models.TextField()
-    domain = models.TextField()
 
     def __str__(self):
         return f'{self.email}'
 
     class Meta:
-        verbose_name = "CertificateRequest"
-        verbose_name_plural = "CertificateRequests"
+        verbose_name = 'Requester'
+        verbose_name_plural = 'Requesters'
+
 
 
 class Note(TimeMixin, AuthorMixin):
@@ -45,3 +47,138 @@ class Note(TimeMixin, AuthorMixin):
         verbose_name = 'Note'
         verbose_name_plural = 'Notes'
 
+
+class CertificateRequest(TimeMixin, AuthorMixin):
+    requester = models.ForeignKey(to='pki_bridge.Requester', on_delete=models.SET_NULL, null=True, blank=True)
+    template = models.TextField()
+    domain = models.TextField()
+    SAN = models.TextField()
+    csr = models.TextField()
+    certificate = models.OneToOneField(to='pki_bridge.Certificate', on_delete=models.SET_NULL, null=True, blank=True)
+    
+    def __str__(self):
+        return f'{self.requester}'
+
+    class Meta:
+        verbose_name = "CertificateRequest"
+        verbose_name_plural = "CertificateRequests"
+
+
+class Certificate(TimeMixin, AuthorMixin):
+    # TODO: show text as
+    pem = models.TextField(null=False, blank=False)
+
+    cert_info = models.TextField(null=True, blank=True)
+    cert_json = models.TextField(null=True, blank=True)
+
+    issued_to = models.TextField(blank=True, null=True)
+    issuer_ou = models.TextField(blank=True, null=True)
+    issuer_cn = models.TextField(blank=True, null=True)
+    issued_o = models.TextField(blank=True, null=True)
+    issuer_c = models.TextField(blank=True, null=True)
+    issuer_o = models.TextField(blank=True, null=True)
+
+    cert_sha1 = models.TextField(blank=True, null=True)
+    cert_sans = models.TextField(blank=True, null=True)
+    cert_alg = models.TextField(blank=True, null=True)
+    cert_ver = models.IntegerField(blank=True, null=True)
+    cert_sn = models.TextField(blank=True, null=True)
+
+    valid_from = models.DateTimeField(blank=True, null=True)
+    valid_till = models.DateTimeField(blank=True, null=True)
+
+    def save(self, *args, **kwargs):
+        pem = self.pem
+        # cryptography_json_cert = Converter(pem, 'pem', 'json').cert 
+        pyopenssl_cert = Converter(pem, 'pem', 'pyopenssl_cert').cert
+        pyopenssl_json_cert = Converter(pyopenssl_cert, 'pyopenssl_cert', 'json').cert
+
+        self.issued_to=pyopenssl_json_cert['issued_to']
+        self.issuer_ou=pyopenssl_json_cert['issuer_ou']
+        self.issuer_cn=pyopenssl_json_cert['issuer_cn']
+        self.issued_o=pyopenssl_json_cert['issued_o']
+        self.issuer_c=pyopenssl_json_cert['issuer_c']
+        self.issuer_o=pyopenssl_json_cert['issuer_o']
+
+        self.cert_sha1=pyopenssl_json_cert['cert_sha1']
+        self.cert_sans=pyopenssl_json_cert['cert_sans']
+        self.cert_alg=pyopenssl_json_cert['cert_alg']
+        self.cert_ver=pyopenssl_json_cert['cert_ver']
+        self.cert_sn=pyopenssl_json_cert['cert_sn']
+
+        dt_format = '%Y-%m-%d'
+        valid_from = pyopenssl_json_cert['valid_from']
+        valid_till = pyopenssl_json_cert['valid_till']
+        valid_from = datetime.strptime(valid_from, dt_format)
+        valid_till = datetime.strptime(valid_till, dt_format)
+        valid_from = make_timezone_aware(valid_from)
+        valid_till = make_timezone_aware(valid_till)
+        self.valid_from = valid_from
+        self.valid_till = valid_till
+        super().save(*args, **kwargs)
+
+    @property
+    def is_from_different_ca(self):
+        allowed_cns = AllowedCN.objects.filter(is_active=True)
+        allowed_cns = allowed_cns.values_list('name', flat=True)
+        if self.issuer_cn not in allowed_cns:
+            from_different_ca = True
+        else:
+            from_different_ca = False
+        return from_different_ca
+
+
+    @property
+    def is_self_signed(self):
+        pem = self.pem
+        pyopenssl_cert = Converter(pem, 'pem', 'pyopenssl_cert').cert
+        pyopenssl_json_cert = Converter(pyopenssl_cert, 'pyopenssl_cert', 'json').cert
+        self_signed = pyopenssl_json_cert['self_signed']
+        print(pyopenssl_json_cert)
+        return self_signed
+
+    # TODO show valid_days_to_expire fields in admin
+    @property
+    def valid_days_to_expire(self):
+        return (self.valid_till - timezone.now()).days
+
+    # TODO show validity_days fields in admin
+    @property
+    def validity_days(self):
+        return (self.valid_till - self.valid_from).days
+
+    # TODO show is_expired fields in admin
+    @property
+    def is_expired(self):
+        try:
+            pem = self.pem
+            pyopenssl_cert = Converter(pem, 'pem', 'pyopenssl_cert').cert
+            pyopenssl_json_cert = Converter(pyopenssl_cert, 'pyopenssl_cert', 'json').cert
+            expired = pyopenssl_json_cert['cert_exp']
+        except Exception as e:
+            print(e)
+            expired = self.days_left <= 0
+        return expired
+
+    # TODO: show text_cert in admin
+    @property
+    def text_cert(self):
+        pem = self.pem
+        converter = Converter(pem, 'pem', 'text')
+        cert = converter.cert
+        return cert
+
+    # TODO: show json_cert in admin
+    @property
+    def json_cert(self):
+        pem = self.pem
+        converter = Converter(pem, 'pem', 'json')
+        cert = converter.cert
+        return cert
+
+    def __str__(self):
+        return f'{self.id}'
+    
+    class Meta:
+        verbose_name = 'Certificate'
+        verbose_name_plural = 'Certificates'

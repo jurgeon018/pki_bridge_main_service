@@ -8,11 +8,11 @@ from rest_framework.decorators import api_view
 
 from decouple import config
 
-import subprocess
 import requests
 from datetime import timedelta
-# from tempfile import gettempdir
+from tempfile import gettempdir
 
+from pki_bridge.core.utils import get_obj_admin_link
 from pki_bridge.core.converter import Converter
 from pki_bridge.conf import db_settings
 from pki_bridge.core.views import (
@@ -26,11 +26,17 @@ from pki_bridge.management import (
 )
 from pki_bridge.models import (
     CertificateRequest,
+    Certificate,
     Template,
     Note,
     Command,
     Host,
+    Requester,
 )
+import urllib3
+# from requests.packages.urllib3.exceptions import InsecureRequestWarning
+# requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 BASE_DIR = settings.BASE_DIR
 WINDOWS_SECRET_KEY = "windows_service_69018"
@@ -40,40 +46,13 @@ WINDOWS_PORT = config('WINDOWS_PORT')
 WINDOWS_URL = f'{WINDOWS_SCHEMA}://{WINDOWS_HOST}:{WINDOWS_PORT}'
 
 
-
-@api_view(['POST'])
-def signcert(request):
-    query = request.data
-    files = request.FILES
-    default_domain = r'CHVIRPKIPRD103.fpprod.corp\Leonteq Class 3 Issuing CA'
-    default_template = 'LeonteqWebSrvManualEnroll'
-
-    # response_format = query.get('response_format', 'file')
-    requester = query.get('requester')
-    template = query.get('template', default_template)
-    domain = query.get('domain', default_domain)
-    SAN = query.get('SAN')
-    note = query.get('note')
-    env = query.get('env')
-
-    if SAN:
-        SAN = SAN.replace(' ','')
-    # certformat = query.get('certformat')
-    # certformats = [k for k, _ in get_formats_mapper().items()]
-    # if certformat not in certformats:
-    #     # formats = 'pem, der, p7b, p12'
-    #     formats = ', '.join(certformats)
-    #     response = f"\nInvalid format. Certformat must be one of: {formats}\n"
-    #     return HttpResponse(response)
-    csr_file = files.get('csr')
-    csr = csr_file.read().decode()
+def throttle_request(requester):
     allowed_requests = db_settings.allowed_requests
     reset_period = db_settings.reset_period
-    if False:
-    # if allowed_requests and reset_period:
+    if allowed_requests and reset_period:
         dt = timezone.now() - timedelta(hours=reset_period)
         certificate_requests = CertificateRequest.objects.filter(
-            email=requester,
+            requester__email=requester,
             created__gte=dt,
         ).order_by('created')
         last_request = certificate_requests.last()
@@ -86,74 +65,159 @@ def signcert(request):
             response += f"You've reached the limit of request({allowed_requests} per {reset_period} hours).\n"
             response += f"Try again in {minutes} minutes and {seconds} seconds.\n"
             return HttpResponse(response)
+
+
+def validate_SAN(SAN):
+    if SAN:
+        SAN = SAN.replace(' ','')
+    return SAN
+
+
+def validate_certformat(certformat):
+    certformats = [k for k, _ in Converter().get_formats_mapper().items()]
+    if certformat not in certformats:
+        # formats = 'pem, der, p7b, p12'
+        formats = ', '.join(certformats)
+        response = f"\nInvalid format. Certformat must be one of: {formats}\n"
+        return HttpResponse(response)
+
+
+def signcert_file_response(pem):
+    import os
+    path = os.path.join(gettempdir(), 'file.cer')
+    with open(path, 'w') as f:
+        f.write(pem)
+    return FileResponse(open(path, 'rb'))
+
+
+@api_view(['POST'])
+def signcert(request):
+    query = request.data
+    files = request.FILES
+    default_domain = r'CHVIRPKIPRD103.fpprod.corp\Leonteq Class 3 Issuing CA'
+    default_template = 'LeonteqWebSrvManualEnroll'
+
+    requester_email = query['requester']
+    response_format = query.get('response_format', 'text')
+    template = query.get('template', default_template)
+    domain = query.get('domain', default_domain)
+    note = query.get('note')
+    SAN = query.get('SAN')
+    enable_sending_certificate_to_mail = query.get('enable_sending_certificate_to_mail', 'true')
+    env = query.get('env')
+    certformat = query.get('certformat')
+    csr_file = files.get('csr')
+    csr = csr_file.read().decode()
+    SAN = validate_SAN(SAN)
+
+    # certformat_invalid_msg = validate_certformat(certformat)
+    # if certformat_invalid_msg is not None:
+    #     return certformat_invalid_msg
+
+    # throttling_result = throttle_request(requester_email)
+    # if throttling_result is not None:
+    #     return throttling_result
+
     templates = Template.objects.all().values_list('name', flat=True)
     if template not in templates:
         response = "Invalid template specified. List of templates you can get from here: /api/v1/listtemplates/\n"
         return HttpResponse(response)
-    elif not entry_is_in_ldap(requester):
-        response = f'Email "{requester}" is not in ldap.\n'
+
+    if not entry_is_in_ldap(requester_email):
+        response = f'Email "{requester_email}" is not in ldap.\n'
         return HttpResponse(response)
-    else:
-        url = f'{WINDOWS_URL}/submit'
-        data = {
-            "secret_key":  WINDOWS_SECRET_KEY,
-            'csr': csr,
-            'domain': domain,
-            'template': template,
-            'san': SAN,
-        }
-        try:
-            response = requests.post(
-                url,
-                json=data,
-                # files={
-                #     'data': (None, json.dumps(data), 'application/json'),
-                #     'csr': ('csr_file', csr_file, 'application/octet-stream')
-                # }
+
+    url = f'{WINDOWS_URL}/submit'
+    data = {
+        "secret_key":  WINDOWS_SECRET_KEY,
+        'csr': csr,
+        'domain': domain,
+        'template': template,
+        'san': SAN,
+    }
+    try:
+        response = requests.post(
+            url,
+            verify=False,
+            json=data,
+            # files={
+            #     'data': (None, json.dumps(data), 'application/json'),
+            #     'csr': ('csr_file', csr_file, 'application/octet-stream')
+            # }
+        )
+        status_code = response.status_code
+        response = response.json()
+        if not status_code == 200:
+            msg = response['msg']
+            response = f'Certificate was not signed because of error: "{msg}". '
+            response += f'Status_code: {status_code}.\n'
+            return HttpResponse(response)
+        else:
+            pem = response['certificate']
+            requester, _ = Requester.objects.get_or_create(
+                email=requester_email,
             )
-            status_code = response.status_code
-            response = response.json()
-            if status_code == 200:
-                certificate = response['certificate']
-                # TODO: read certificate with converter and save info about issuer, subject, notvalidafter, notvalidbefore
-                certificate_request = CertificateRequest.objects.create(
-                    email=requester,
-                    note=note,
-                    csr=csr,
-                    certificate=certificate,
-                    template=template,
-                    domain=domain,
+            certificate = Certificate.objects.create(
+                pem=pem,
+            )
+            certificate_request = CertificateRequest.objects.create(
+                requester=requester,
+                template=template,
+                domain=domain,
+                SAN=SAN,
+                csr=csr,
+                certificate=certificate,
+                # TODO: save "env" to db ??
+                # env=env,
+                # TODO: save "certformat" to db ??
+                # certformat=certformat,
+            )
+            if note:
+                Note.objects.create(
+                    certificate_request=certificate_request,
+                    text=note,
                 )
-                if note:
-                    Note.objects.create(
-                        certificate_request=certificate_request,
-                        text=note,
-                    )
-                # if response_format == 'file':
-                #     import os
-                #     path = os.path.join(gettempdir(), 'file.cer')
-                #     with open(path, 'w') as f:
-                #         f.write(certificate)
-                #     return FileResponse(open(path, 'rb'))
-                # elif response_format == 'text':
-                #     response = ''
-                #     response += f'{certificate}\n'
-                #     response += f'Certificate has been signed successfully. Its id is {certificate_request.id}.\n'
-                #     return HttpResponse(response)
+            if enable_sending_certificate_to_mail == 'true':
+                send_certificate_to_mail(requester_email, certificate_request)
+            if response_format == 'text':
                 response = ''
-                response += f'{certificate}\n\n\n'
-                response += f'Certificate has been signed successfully. Its id is {certificate_request.id}.\n'
+                response += f'{pem}\n\n\n'
+                response += f'Certificate request has been signed successfully. '
+                response += f'Its id is {certificate_request.id}.\n'
+                response += f'Certificate has been sent to your email in pem format.\n'
                 return HttpResponse(response)
-            else:
-                msg = response['msg']
-                response = f'Certificate was not signed because of error: "{msg}". Status_code: {status_code}.\n'
-                return HttpResponse(response)
-        except requests.exceptions.ConnectionError as e:
-            response = f'Connection error:{e}.\n'
-            return HttpResponse(response)
-        except Exception as e:
-            response = f'Error occured. {e}. Status_code: {status_code}.\n'
-            return HttpResponse(response)
+            elif response_format == 'file':
+                # TODO: return response as file
+                # return signcert_file_response(pem)
+                return HttpResponse('Not implemented.\n')
+    except requests.exceptions.ConnectionError as e:
+        response = f'Connection error:{e}.\n'
+        return HttpResponse(response)
+    except Exception as e:
+        response = f'Error occured. {e}. Windows service\'s response status_code: {status_code}.\n'
+        return HttpResponse(response)
+
+
+def send_certificate_to_mail(requester_email, certificate_request):
+    subject = f'Certificate request #{certificate_request.id}'
+    message = f''
+    message += f'Certificate request id: {certificate_request.id}\n'
+    message += f'Certificate id: {certificate_request.certificate.id}\n'
+    message += f'Certificate request link: {get_obj_admin_link(certificate_request)}\n'
+    message += f'Certificate link: {get_obj_admin_link(certificate_request.certificate)}\n'
+    message += f'Certificate pem: \n{certificate_request.certificate.pem}\n'
+    message += f'CSR: \n{certificate_request.csr}\n'
+    from_email = settings.DEFAULT_FROM_EMAIL
+    recipient_list = []
+    recipient_list.append(requester_email)
+    # recipient_list.append('andrey.mendela@leonteq.com')
+    send_mail(
+        subject=subject,
+        message=message,
+        from_email=from_email,
+        recipient_list=recipient_list,
+        fail_silently=False
+    )
 
 
 def validate_cert_format(cert_format):

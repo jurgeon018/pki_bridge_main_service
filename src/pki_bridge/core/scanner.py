@@ -1,23 +1,19 @@
-import threading
-from django.utils import timezone
 from django.conf import settings
 from django.core.mail import send_mail
-from django.urls import reverse
-from django.contrib.sites.models import Site
 from django.core.paginator import Paginator
 
-from threading import Thread
-import socket
-from datetime import datetime
+from threading import Thread, currentThread
 from ssl import PROTOCOL_TLSv1
 from time import sleep, time
 from OpenSSL import SSL, crypto
 import json
 import logging
+import socket
 
 from pki_bridge.conf import db_settings
 from pki_bridge.core.utils import (
     run,
+    get_obj_admin_link,
 )
 from pki_bridge.core.converter import (
     Converter,
@@ -25,12 +21,14 @@ from pki_bridge.core.converter import (
 from pki_bridge.models import (
     # Network,
     CertificateRequest,
+    Certificate,
     Scan,
     Host,
 )
 
 
 logger = logging.getLogger(__name__)
+settings.ENABLE_MAIL_NOTIFICATION = False
 
 
 class Scanner:
@@ -45,14 +43,16 @@ class Scanner:
     # https://gist.github.com/gdamjan/55a8b9eec6cf7b771f92021d93b87b2c
 
     def scan_network(self):
-        self.scan_hosts()
+        # self.scan_hosts()
         self.scan_db_certificates()
     
     def scan_db_certificates(self):
         start = time()
 
         threads = []
-        certificates = CertificateRequest.objects.filter(is_active=True)
+        certificates = CertificateRequest.objects.all()
+        # TODO: filter certificates which hasnt been scanned yet
+        # certificates = certificates.filter()
         certificates = certificates[10:40]
 
         #  TODO: per_page = db_settings.certificates_per_page
@@ -76,7 +76,8 @@ class Scanner:
 
         threads = []
         hosts = Host.objects.filter(is_active=True)
-        hosts = hosts[10:40]
+        # hosts = hosts.order_by('id')
+        # hosts = hosts[10:40]
 
         # TODO: per_page = db_settings.per_page
         per_page = 8
@@ -95,98 +96,79 @@ class Scanner:
 
     def scan_hosts_page(self, hosts_page):
         for host in hosts_page:
-            self.scan_host(host)
+            if not self.host_exists(host):
+                print(f'host {host} doesnt exist')
+                return
+            ports = [
+                443,
+                # 8081,
+                # 8443,
+                # 8083,
+            ]
+            for port in ports:
+                self.scan_host(host, port)
 
-    def host_exists(self, host):
-        try:
-            socket.gethostbyname(host.host)
-        except socket.gaierror as e:
-            msg = f'Host {host} doesnt exist. Error: {e}'
-            print(msg)
-            logger.warning(msg)
-            return False
-        return True
-
-    def scan_host(self,host):
-        if not self.host_exists(host):
-            return
-        ports = [
-            443,
-            8081,
-            8443,
-            8083,
-        ]
-
-        for port in ports:
-            result = self.show_result(host.host, port)
-            # print()
-            if result != {}:
-                print(f"{host}:{port} result: {result}. {threading.currentThread()}")
-            if result == {}:
-                continue
-            pem = Converter().get_pem_of_host(host.host, port)
-            cert = Converter().decode_pem_into_cert(pem)
-            # print()
-            # print()
-            # print(cert)
-            # print(host)
-            # print()
-            # TODO: raise excpetion if info in result and info in cert is not the same 
-            # TODO: try to convert result to PEM and compare it to openssl pem from get_pem_of_host
-            # scan = create_scan(host, result, pem, cert)
-            # mail_admins(host, result, scan)
-
-    def create_scan(self, host, result, pem, cert):
+    def scan_host(self, host, port):
+        print()
+        print(f"{host}:{port}. {currentThread()}")
         scan = Scan.objects.create(
             host=host,
-            result=json.dumps(result, indent=4),
-            pem=pem,
-            cert=cert,
-            hostname=result['host'],
-            issued_to=result['issued_to'],
-            issued_o=result['issued_o'],
-            issuer_c=result['issuer_c'],
-            issuer_o=result['issuer_o'],
-            issuer_ou=result['issuer_ou'],
-            issuer_cn=result['issuer_cn'],
-            cert_sn=result['cert_sn'],
-            cert_sha1=result['cert_sha1'],
-            cert_alg=result['cert_alg'],
-            cert_ver=result['cert_ver'],
-            cert_sans=result['cert_sans'],
-            cert_exp=result['cert_exp'],
-            valid_from=result['valid_from'],
-            valid_till=result['valid_till'],
-            validity_days=result['validity_days'],
-            days_left=result['days_left'],
-            valid_days_to_expire=result['valid_days_to_expire'],
-            tcp_port=result['tcp_port'],
+            port=port,
         )
         host.last_scan = scan
         host.save()
-        return scan
+        pyopenssl_cert = self.get_cert_of_host(host.name, port)
+        if not isinstance(pyopenssl_cert, crypto.X509):
+            msg = f'{host}:{port} didnt return certificate.'
+            msg += f'Error: {pyopenssl_cert}({type(pyopenssl_cert)})'
+            scan.error_message = msg
+            scan.save()
+            return
+        pem = self.get_pem_of_host(host.name, port)
+        pyopenssl_pem = Converter(pyopenssl_cert, 'pyopenssl_cert', 'pem').cert 
+        if pyopenssl_pem != pem:
+            msg = f"'openssl s_client -connect {host}:{port}' "
+            msg += f"and 'SSL.Connection.get_peer_certificate()' "
+            msg += f"returted different pem certificates."
+            scan.error_message = msg
+            scan.save()
+            return
+        pyopenssl_json_cert = Converter(pyopenssl_cert, 'pyopenssl_cert', 'json').cert
+        # pyopenssl_json_cert = self.analyze_ssl(host.name, pyopenssl_json_cert) 
+        pyopenssl_cert2 = Converter(pem, 'pem', 'pyopenssl_cert').cert
+        pyopenssl_json_cert2 = Converter(pyopenssl_cert2, 'pyopenssl_cert', 'json').cert
+        if pyopenssl_json_cert2 != pyopenssl_json_cert:
+            msg = f"'Pem certificates of "
+            msg += f"'openssl s_client -connect {host}:{port}' "
+            msg += f"and 'SSL.Connection.get_peer_certificate()' "
+            msg += f"returted different json values after convertations."
+            scan.error_message = msg
+            scan.save()
+            return
+        certificate = Certificate.objects.create(
+            pem=pem,
+        )
+        # print('certificate:', certificate)
+        scan.certificate = certificate
+        scan.save()
+        self.mail_admins(host, port, certificate, scan)
 
-    def mail_admins(self, host, result, scan):
-
-        domain = Site.objects.get_current().domain
-        link = reverse(f'admin:{scan._meta.app_label}_{scan._meta.model_name}_change', args=[scan.id, ])
-        link = f'https://{domain}{link}'
-
-        valid_days_to_expire = result['valid_days_to_expire']
-        is_expired = result['cert_exp']
-
-        # TODO: host.days_to_expire
-        # days_to_expire = host.days_to_expire
-        days_to_expire = 3000
-        # TODO: check if is not selfsigned
-        # https://stackoverflow.com/questions/56763385/determine-if-ssl-certificate-is-self-signed-using-python
-        is_self_signed = False
-        # TODO: check if is not from different CA(issuer_cn field)
-        is_from_different_ca = False
-
-        perform_send = False
+    def mail_admins(self, host, port, certificate, scan):
+        valid_days_to_expire = certificate.valid_days_to_expire
+        is_expired = certificate.is_expired
+        days_to_expire = host.days_to_expire
+        # days_to_expire = 3000
+        is_self_signed = certificate.is_self_signed
+        is_from_different_ca = certificate.is_from_different_ca
+        # print('certificate: ', certificate)
+        # print("valid_days_to_expire: ", valid_days_to_expire)
+        # print("days_to_expire: ", days_to_expire)
+        # print("is_expired: ", is_expired)
+        # print("is_self_signed: ", is_self_signed)
+        # print("is_from_different_ca: ", is_from_different_ca)
+        # return
+        link = get_obj_admin_link(scan)
         if is_expired:
-            perform_send = True
             # TODO: count days or replace with date
             days = 'a few'
             subject = f"Certificate of {host} has expired {days} days ago. More info: {link}"
@@ -199,8 +181,15 @@ class Scanner:
                 recipient_list += [
                     host.contacts,
                 ]
-        elif valid_days_to_expire < days_to_expire:
-            perform_send = True
+            if settings.ENABLE_MAIL_NOTIFICATIONS:
+                send_mail(
+                    subject=subject,
+                    message=message,
+                    from_email=db_settings.default_from_email,
+                    recipient_list=recipient_list,
+                    fail_silently=False,
+                )
+        if valid_days_to_expire < days_to_expire:
             subject = f"Expiration of {host} certificate."
             message = f"Certificate of host {host} will expire in {valid_days_to_expire} days. More info: {link}"
             recipient_list = []
@@ -211,8 +200,15 @@ class Scanner:
                 recipient_list += [
                     host.contacts,
                 ]
-        elif is_self_signed:
-            perform_send = True
+            if settings.ENABLE_MAIL_NOTIFICATIONS:
+                send_mail(
+                    subject=subject,
+                    message=message,
+                    from_email=db_settings.default_from_email,
+                    recipient_list=recipient_list,
+                    fail_silently=False,
+                )
+        if is_self_signed:
             subject = f"Self-signed certificate on {host}."
             message = f"Certificate of host {host} is self-signed. Please change. More info: {link}"
             recipient_list = []
@@ -223,8 +219,15 @@ class Scanner:
                 recipient_list += [
                     host.contacts,
                 ]
-        elif is_from_different_ca:
-            perform_send = True
+            if settings.ENABLE_MAIL_NOTIFICATIONS:
+                send_mail(
+                    subject=subject,
+                    message=message,
+                    from_email=db_settings.default_from_email,
+                    recipient_list=recipient_list,
+                    fail_silently=False,
+                )
+        if is_from_different_ca:
             subject = f"Foreign certificate on host {host}."
             message = f"Certificate of host {host} is from different CA. Please change. More info: {link}"
             recipient_list = []
@@ -235,29 +238,24 @@ class Scanner:
                 recipient_list += [
                     host.contacts,
                 ]
-        print(perform_send)
-        print(recipient_list)
-        if False:
-        # if perform_send:
-            print(message)
-            send_mail(
-                subject=subject,
-                message=message,
-                from_email=db_settings.default_from_email,
-                recipient_list=recipient_list,
-                fail_silently=False,
-            )
+            if settings.ENABLE_MAIL_NOTIFICATIONS:
+                send_mail(
+                    subject=subject,
+                    message=message,
+                    from_email=db_settings.default_from_email,
+                    recipient_list=recipient_list,
+                    fail_silently=False,
+                )
 
-    def show_result(self, host, port, analyze=False):
-        context = {}
-        cert = self.get_cert_of_host(port)
-        if isinstance(cert, crypto.X509):
-            context = Converter().pyopenssl_cert_to_json(cert)
-            context['host'] = host
-            context['tcp_port'] = int(port)
-            if analyze:
-                context = self.analyze_ssl(host, context)
-        return context
+    def host_exists(self, host):
+        try:
+            socket.gethostbyname(host.name)
+        except socket.gaierror as e:
+            msg = f'Host {host} doesnt exist. Error: {e}'
+            print(msg)
+            logger.warning(msg)
+            return False
+        return True
 
     def get_pem_of_host(self, host, port):
         # TODO: convert pyopenssl x509\cert\ssl object to pem string
@@ -276,15 +274,16 @@ class Scanner:
         pem = begin + pem[-1].strip()
         pem = pem.split(end)
         pem = pem[0].strip() + end
+        pem = pem.strip()
         return pem
 
     def get_cert_of_host(self, host, port, socks=None):
         host = self.filter_hostname(host)
-        if socks:
-            from pki_bridge.core import socks
-            socks_host = self.filter_hostname(socks)
-            socks.setdefaultproxy(socks.PROXY_TYPE_SOCKS5, socks_host, int(port), True)
-            socket.socket = socks.socksocket
+        # if socks:
+        #     from pki_bridge.core import socks
+        #     socks_host = self.filter_hostname(socks)
+        #     socks.setdefaultproxy(socks.PROXY_TYPE_SOCKS5, socks_host, int(port), True)
+        #     socket.socket = socks.socksocket
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         # SCAN_TIMEOUT = 120
         # SCAN_TIMEOUT = 2

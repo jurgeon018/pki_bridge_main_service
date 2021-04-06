@@ -19,7 +19,11 @@ class Converter(object):
 
     def __init__(self, cert=None, from_=None, to=None):
         func = self.get_func(from_, to)
-        self.cert = func(cert)
+        if func == self.empty_cert:
+            cert = func(cert, from_, to)
+        else:
+            cert = func(cert)
+        self.cert = cert
         self.cert_format = to 
         self.cert_type = type(self.cert)
     
@@ -28,52 +32,52 @@ class Converter(object):
     def get_formats_mapper(self):
         formats_mapper = {
             'pyopenssl_cert': {
-                # None: self.empty_cert,
+                None: self.empty_cert,
                 "cryptography_cert": self.pyopenssl_cert_to_cryptography,
                 "json": self.pyopenssl_cert_to_json,
-                'pem': ...,
-                'pyopenssl_cert': ...,
-                'text': ...,
+                "pem": self.pyopenssl_cert_to_pem,
+                'pyopenssl_cert': self.empty_cert,
+                'text': self.empty_cert,
             },
             'pem': {
-                # None: self.empty_cert,
+                None: self.empty_cert,
                 "cryptography_cert": self.pem_to_cryptography_cert,
                 "pyopenssl_cert": self.pem_to_pyopenssl_cert,
                 "text": self.pem_to_text,
                 'json': self.pem_to_json,
-                'pem': ...,
+                'pem': self.empty_cert,
             },
             'cryptography_cert': {
-                # None: self.empty_cert,
+                None: self.empty_cert,
                 "json": self.cryptography_cert_to_json,
-                'text': ...,
-                'pem': ...,
-                'pyopenssl_cert': ...,
-                'cryptography_cert': ...,
+                'text': self.empty_cert,
+                'pem': self.empty_cert,
+                'pyopenssl_cert': self.empty_cert,
+                'cryptography_cert': self.empty_cert,
             },
             'text': {
-                # None: self.empty_cert,
-                'text': ...,
-                'json': ...,
-                'pem': ...,
-                'pyopenssl_cert': ...,
-                'cryptography_cert': ...,
+                None: self.empty_cert,
+                'text': self.empty_cert,
+                'json': self.empty_cert,
+                'pem': self.empty_cert,
+                'pyopenssl_cert': self.empty_cert,
+                'cryptography_cert': self.empty_cert,
             },
             'json': {
-                # None: self.empty_cert,
-                'text': ...,
-                'json': ...,
-                'pem': ...,
-                'pyopenssl_cert': ...,
-                'cryptography_cert': ...,
+                None: self.empty_cert,
+                'text': self.empty_cert,
+                'json': self.empty_cert,
+                'pem': self.empty_cert,
+                'pyopenssl_cert': self.empty_cert,
+                'cryptography_cert': self.empty_cert,
             },
             None: {
-                # None: self.empty_cert,
-                'text': ...,
-                'json': ...,
-                'pem': ...,
-                'pyopenssl_cert': ...,
-                'cryptography_cert': ...,
+                None: self.empty_cert,
+                'text': self.empty_cert,
+                'json': self.empty_cert,
+                'pem': self.empty_cert,
+                'pyopenssl_cert': self.empty_cert,
+                'cryptography_cert': self.empty_cert,
             },
         }
         openssl_formats = {
@@ -116,7 +120,7 @@ class Converter(object):
 
     def pem_to_json(self, pem):
         cryptography_cert = self.pem_to_cryptography_cert(pem)
-        json_cert = self.cryptography_cert_to_json
+        json_cert = self.cryptography_cert_to_json(cryptography_cert)
         return json_cert
 
     def pyopenssl_cert_to_cryptography(self, pyopenssl_cert):
@@ -150,25 +154,22 @@ class Converter(object):
     def cryptography_cert_to_json(self, cryptography_cert):
         issuer = cryptography_cert.issuer
         subject = cryptography_cert.subject
-        # assert issuer._attributes == issuer.rdns
-        # assert subject._attributes == subject.rdns
-        # issuer.rfc4514_string().split(',')
-        # subject.rfc4514_string().split(',')
+        assert issuer._attributes == issuer.rdns
+        assert subject._attributes == subject.rdns
         dict_subject = self.parse_rdns(subject.rdns)
         dict_issuer = self.parse_rdns(issuer.rdns)
-
-        # validity dates
-        dt_format = '%Y.%m.%d %H:%m%s'
+        dt_format = '%Y.%m.%d %H:%M:%S'
         not_valid_after = datetime.strftime(cryptography_cert.not_valid_after, dt_format)
         not_valid_before = datetime.strftime(cryptography_cert.not_valid_before, dt_format)
-        # 
         cert_dict = {}
         cert_dict['subject'] = dict_subject
         cert_dict['issuer'] = dict_issuer
+        cert_dict['subject']['_rfc4514'] = subject.rfc4514_string()
+        cert_dict['issuer']['_rfc4514'] = issuer.rfc4514_string()
         cert_dict['not_valid_after'] = not_valid_after
         cert_dict['not_valid_before'] = not_valid_before
-        cert_dict['version'] = cryptography_cert.version
         cert_dict['serial_number'] = cryptography_cert.serial_number
+        # cert_dict['version'] = cryptography_cert.version
         # cert_dict['public_key'] = cryptography_cert.public_key()
         # cert_dict['fingerprint'] = cryptography_cert.fingerprint
         # cert_dict['signature_algorithm_oid'] = cryptography_cert.signature_algorithm_oid
@@ -181,13 +182,27 @@ class Converter(object):
 
     def pyopenssl_cert_to_json(self, pyopenssl_cert):
         json_cert = {}
+
         cert_subject = pyopenssl_cert.get_subject()
+        cert_issuer = pyopenssl_cert.get_issuer()
+
+        subject_components = dict(cert_subject.get_components())
+        issuer_components = dict(cert_issuer.get_components())
+        _subject_CN = subject_components[b'CN'].decode('utf-8')
+        _issuer_CN = issuer_components[b'CN'].decode('utf-8')
+        assert _subject_CN == cert_subject.CN
+        assert _issuer_CN == cert_issuer.commonName
+        # https://stackoverflow.com/questions/56763385/determine-if-ssl-certificate-is-self-signed-using-python
+        json_cert['self_signed'] = _issuer_CN == _subject_CN
+        json_cert['_subject_CN'] = _subject_CN
+        json_cert['_subject_CN'] = _subject_CN
+        json_cert['_issuer_CN'] = _issuer_CN
         json_cert['issued_to'] = cert_subject.CN
         json_cert['issued_o'] = cert_subject.O
-        json_cert['issuer_c'] = pyopenssl_cert.get_issuer().countryName
-        json_cert['issuer_o'] = pyopenssl_cert.get_issuer().organizationName
-        json_cert['issuer_ou'] = pyopenssl_cert.get_issuer().organizationalUnitName
-        json_cert['issuer_cn'] = pyopenssl_cert.get_issuer().commonName
+        json_cert['issuer_c'] = cert_issuer.countryName
+        json_cert['issuer_o'] = cert_issuer.organizationName
+        json_cert['issuer_ou'] = cert_issuer.organizationalUnitName
+        json_cert['issuer_cn'] = cert_issuer.commonName
         json_cert['cert_sn'] = str(pyopenssl_cert.get_serial_number())
         json_cert['cert_sha1'] = pyopenssl_cert.digest('sha1').decode()
         json_cert['cert_alg'] = pyopenssl_cert.get_signature_algorithm().decode()
@@ -198,18 +213,35 @@ class Converter(object):
         # json_cert['cert_valid'] = False if pyopenssl_cert.has_expired() else True
         valid_from = datetime.strptime(pyopenssl_cert.get_notBefore().decode('ascii'),
                                        '%Y%m%d%H%M%SZ')
-        json_cert['valid_from'] = valid_from.strftime('%Y-%m-%d')
+        dt_format = '%Y-%m-%d'
+        json_cert['valid_from'] = valid_from.strftime(dt_format)
         valid_till = datetime.strptime(pyopenssl_cert.get_notAfter().decode('ascii'),
                                        '%Y%m%d%H%M%SZ')
-        json_cert['valid_till'] = valid_till.strftime('%Y-%m-%d')
+        json_cert['valid_till'] = valid_till.strftime(dt_format)
         json_cert['validity_days'] = (valid_till - valid_from).days
         now = datetime.now()
         json_cert['days_left'] = (valid_till - now).days
-        json_cert['valid_days_to_expire'] = (datetime.strptime(json_cert['valid_till'],
-                                           '%Y-%m-%d') - datetime.now()).days
+        valid_days_to_expire = (datetime.strptime(json_cert['valid_till'], dt_format) - datetime.now()).days
+        json_cert['valid_days_to_expire'] = valid_days_to_expire
         return json_cert
 
-    def empty_cert(self):
+    def pyopenssl_cert_to_pem(self, pyopenssl_cert):
+        # https://stackoverflow.com/questions/9796694/pyopenssl-convert-certificate-object-to-pem-file
+        # req = crypto.X509Req()
+        # pkey = crypto.PKey()
+        # pkey.generate_key(crypto.TYPE_RSA, 2048)
+        # req.set_pubkey(pkey)
+        # req.sign(pkey, 'sha1')
+        # certreq = crypto.dump_certificate_request(crypto.FILETYPE_PEM, req)
+        # certreq = certreq.replace('-----BEGIN CERTIFICATE REQUEST-----\n', '').replace('-----END CERTIFICATE REQUEST-----\n', '')
+        # private_key = crypto.dump_privatekey(crypto.FILETYPE_PEM, pkey)
+        pem = crypto.dump_certificate(crypto.FILETYPE_PEM, pyopenssl_cert)
+        pem = pem.decode('utf-8').strip()
+        return pem
+
+    def empty_cert(self, cert, from_, to):
+        raise FunctionNotImplemented(f"Cannot convert from '{from_}' to '{to}'")
+        return "Not Implemented"
         return None
 
     # utils

@@ -22,8 +22,8 @@ class BaseMixin(object):
             obj.last_updated_by = request.user
         else:
             obj.created_by = request.user
-        if not obj.created_by:
-            obj.created_by = request.user
+        # if not obj.created_by:
+        #     obj.created_by = request.user
         super().save_model(request, obj, form, change)
 
     def save_formset_additional(self, obj, form, formset, change):

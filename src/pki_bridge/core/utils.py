@@ -1,9 +1,28 @@
-import subprocess
 from django.urls import reverse
+from django.contrib.sites.models import Site
+from django.conf import settings
+from django.utils.timezone import pytz
+
+import subprocess
 import logging
 
 
 logger = logging.getLogger(__name__)
+
+
+
+def make_timezone_aware(dt_obj):
+    dt_obj = dt_obj.astimezone(pytz.timezone(settings.TIME_ZONE))
+    return dt_obj
+
+
+def get_obj_admin_link(obj):
+    domain = Site.objects.get_current().domain
+    url = f'admin:{obj._meta.app_label}_{obj._meta.model_name}_change'
+    link = reverse(url, args=[obj.id, ])
+    site_admin_link = f'https://{domain}{link}'
+    return site_admin_link
+
 
 def set_openssl_version():
     openssl_version = get_openssl_version()

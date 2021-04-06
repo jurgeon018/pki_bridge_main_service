@@ -6,6 +6,7 @@ from pki_bridge.management import (
     update_templates,
     gen_networks,
     gen_hosts,
+    gen_allowed_cn,
 )
 from django.contrib.contenttypes.management import create_contenttypes
 from django.contrib.auth.management import create_permissions
@@ -71,6 +72,11 @@ def migrate_user(apps, schema_editor):
     gen_user(ProjectUser=ProjectUser)
 
 
+def migrate_allowed_cn(apps, schema_editor):
+    AllowedCN = apps.get_model('pki_bridge', 'AllowedCN')
+    gen_allowed_cn(AllowedCN=AllowedCN)
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -83,6 +89,8 @@ class Migration(migrations.Migration):
         migrations.RunPython(migrate_templates),
         migrations.RunPython(migrate_networks),
         migrations.RunPython(migrate_hosts),
+        # TODO: migrate_allowed_cn
+        # migrations.RunPython(migrate_allowed_cn),
         # TODO: migrate_settings
         # migrations.RunPython(migrate_settings),
         migrations.RunPython(migrate_user),

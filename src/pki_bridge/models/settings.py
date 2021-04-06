@@ -2,9 +2,57 @@ from django.db import models
 from django.conf import settings
 from solo.models import SingletonModel
 from django.core.exceptions import ValidationError
-
+from pki_bridge.models.networks import Host
 
 BASE_DIR = settings.BASE_DIR
+
+
+class PkiFieldsMixin(models.Model):
+    scan_timeout = models.IntegerField(default=2)
+    update_templates_from_ca = models.BooleanField(default=False)
+    ldap_username = models.CharField(max_length=255, blank=True, null=True)
+    ldap_password = models.CharField(max_length=255, blank=True, null=True)
+    allow_use_file_as_ldap_results = models.BooleanField(blank=True, null=True)
+
+    allowed_requests = models.PositiveIntegerField(
+        blank=True, null=True,
+        help_text='per {reset_period} hours for one IP-address',
+    )
+    reset_period = models.PositiveIntegerField(blank=True, null=True)
+
+    ca = models.TextField()
+    intermediary = models.TextField()
+    chain = models.TextField()
+
+    days_to_expire = models.PositiveIntegerField(default=30)
+
+    def save(self, *args, **kwargs):
+        old_days_to_expire = self.days_to_expire
+        super().save(*args, **kwargs)
+        new_days_to_expire = self.days_to_expire
+        if old_days_to_expire != new_days_to_expire:
+            hosts = Host.objects.all()
+            hosts.update(days_to_expire=new_days_to_expire)
+
+
+    def update_from_config(self):
+        self.update_templates_from_ca = settings.UPDATE_TEMPLATES_FROM_CA
+        self.ldap_username = settings.LDAP_USERNAME
+        self.ldap_password = settings.LDAP_PASSWORD
+        self.scan_timeout = settings.SCAN_TIMEOUT
+        self.allowed_requests = settings.ALLOWED_REQUESTS
+        self.reset_period = settings.RESET_PERIOD
+        self.allow_use_file_as_ldap_results = settings.ALLOW_USE_FILE_AS_LDAP_RESULTS
+        self.days_to_expire = settings.DAYS_TO_EXPIRE
+        with open(BASE_DIR / 'fixtures' / 'key.key') as f:
+            self.ca = f.read()
+        with open(BASE_DIR / 'fixtures' / 'cer.cer') as f:
+            self.intermediary = f.read()
+        with open(BASE_DIR / 'fixtures' / 'chain.cer') as f:
+            self.chain = f.read()
+
+    class Meta:
+        abstract = True
 
 
 class EmailSettingsFieldsMixin(models.Model):
@@ -64,42 +112,6 @@ class EmailSettingsFieldsMixin(models.Model):
         abstract = True
 
 
-class PkiFieldsMixin(models.Model):
-    scan_timeout = models.IntegerField(default=2)
-    update_templates_from_ca = models.BooleanField(default=False)
-    ldap_username = models.CharField(max_length=255, blank=True, null=True)
-    ldap_password = models.CharField(max_length=255, blank=True, null=True)
-    allow_use_file_as_ldap_results = models.BooleanField(blank=True, null=True)
-
-    allowed_requests = models.PositiveIntegerField(
-        blank=True, null=True,
-        help_text='per {reset_period} hours for one IP-address',
-    )
-    reset_period = models.PositiveIntegerField(blank=True, null=True)
-
-    ca = models.TextField()
-    intermediary = models.TextField()
-    chain = models.TextField()
-
-    def update_from_config(self):
-        self.update_templates_from_ca = settings.UPDATE_TEMPLATES_FROM_CA
-        self.ldap_username = settings.LDAP_USERNAME
-        self.ldap_password = settings.LDAP_PASSWORD
-        self.scan_timeout = settings.SCAN_TIMEOUT
-        self.allowed_requests = settings.ALLOWED_REQUESTS
-        self.reset_period = settings.RESET_PERIOD
-        self.allow_use_file_as_ldap_results = settings.ALLOW_USE_FILE_AS_LDAP_RESULTS
-        with open(BASE_DIR / 'fixtures' / 'key.key') as f:
-            self.ca = f.read()
-        with open(BASE_DIR / 'fixtures' / 'cer.cer') as f:
-            self.intermediary = f.read()
-        with open(BASE_DIR / 'fixtures' / 'chain.cer') as f:
-            self.chain = f.read()
-
-    class Meta:
-        abstract = True
-
-
 class ProjectSettings(
     PkiFieldsMixin,
     EmailSettingsFieldsMixin,
@@ -116,3 +128,23 @@ class ProjectSettings(
     class Meta:
         verbose_name = 'ProjectSettings'
         verbose_name_plural = 'ProjectSettings'
+
+
+class AllowedCN(models.Model):
+    project_settings = models.ForeignKey(to='pki_bridge.ProjectSettings', on_delete=models.SET_NULL, blank=True, null=True)
+    name = models.CharField(max_length=255)
+    is_active = models.BooleanField(default=True)
+
+    def save(self, *args, **kwargs):
+        project_settings = ProjectSettings.get_solo()
+        self.project_settings = project_settings
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f'{self.name}'
+
+    class Meta:
+        verbose_name = 'Allowed CN'
+        verbose_name_plural = 'Allowed CNs'
+
+

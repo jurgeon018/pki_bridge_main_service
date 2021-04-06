@@ -74,18 +74,18 @@ class HostAdmin(BaseMixin, admin.ModelAdmin):
     get_last_scan.short_description = 'Last scan'
 
     search_fields = [
-        'host',
+        'name',
         'contacts',
     ]
     list_editable = [
-        'host',
+        'name',
         'contacts',
         'is_active',
     ]
     list_display = [
         'id',
         'is_active',
-        'host',
+        'name',
         'network',
         'contacts',
     ]
@@ -122,6 +122,7 @@ class ScanAdmin(admin.ModelAdmin):
         'host',
     ]
     list_filter = [
+        # TODO: link to certificate page
         # TODO: autocomplete
         HostFilter,
         'created',

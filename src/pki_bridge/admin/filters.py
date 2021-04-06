@@ -10,3 +10,14 @@ class HostFilter(AutocompleteFilter):
     title = 'host'
     field_name = 'host'
 
+
+class RequesterFilter(AutocompleteFilter):
+    title = 'requester'
+    field_name = 'requester'
+
+
+class CertificateFilter(AutocompleteFilter):
+    title = 'certificate'
+    field_name = 'certificate'
+
+
