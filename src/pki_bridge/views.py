@@ -12,6 +12,12 @@ import requests
 from datetime import timedelta
 from tempfile import gettempdir
 
+from pki_bridge.tasks import (
+    celery_scan_network,
+    celery_scan_hosts,
+    celery_scan_db_certificates,
+)
+from pki_bridge.core.scanner import Scanner
 from pki_bridge.core.utils import get_obj_admin_link
 from pki_bridge.core.converter import Converter
 from pki_bridge.conf import db_settings
@@ -32,11 +38,13 @@ from pki_bridge.models import (
     Command,
     Host,
     Requester,
+    ProjectUser,
 )
 import urllib3
 # from requests.packages.urllib3.exceptions import InsecureRequestWarning
 # requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
 
 BASE_DIR = settings.BASE_DIR
 WINDOWS_SECRET_KEY = "windows_service_69018"
@@ -90,6 +98,19 @@ def signcert_file_response(pem):
     return FileResponse(open(path, 'rb'))
 
 
+def validate_template_rights(requester_email, password, template):
+    if not db_settings.enable_template_rights_validation:
+        return None
+    user = ProjectUser.objects.filter(email=requester_email).first()
+    templates = user.templates.all().values_list('name', flat=True)
+    if user is not None:
+        if not user.check_password(password):
+            response = 'Password is incorrect'
+        elif template not in templates:
+            response = 'You do not have rights to use this template.\n'
+        return HttpResponse(response)
+
+
 @api_view(['POST'])
 def signcert(request):
     query = request.data
@@ -98,25 +119,30 @@ def signcert(request):
     default_template = 'LeonteqWebSrvManualEnroll'
 
     requester_email = query['requester']
+    password = query.get('password')
     response_format = query.get('response_format', 'text')
     template = query.get('template', default_template)
     domain = query.get('domain', default_domain)
     note = query.get('note')
     SAN = query.get('SAN')
     enable_sending_certificate_to_mail = query.get('enable_sending_certificate_to_mail', 'true')
-    env = query.get('env')
+    # env = query.get('env')
     certformat = query.get('certformat')
     csr_file = files.get('csr')
     csr = csr_file.read().decode()
     SAN = validate_SAN(SAN)
 
-    # certformat_invalid_msg = validate_certformat(certformat)
-    # if certformat_invalid_msg is not None:
-    #     return certformat_invalid_msg
+    certformat_invalid_msg = validate_certformat(certformat)
+    if certformat_invalid_msg is not None:
+        return certformat_invalid_msg
 
-    # throttling_result = throttle_request(requester_email)
-    # if throttling_result is not None:
-    #     return throttling_result
+    throttling_result = throttle_request(requester_email)
+    if throttling_result is not None:
+        return throttling_result
+
+    template_rigths_result = validate_template_rights(requester_email, password, template)
+    if template_rigths_result is not None:
+        return template_rigths_result
 
     templates = Template.objects.all().values_list('name', flat=True)
     if template not in templates:
@@ -167,9 +193,9 @@ def signcert(request):
                 SAN=SAN,
                 csr=csr,
                 certificate=certificate,
-                # TODO: save "env" to db ??
+                # TODO v2: save "env" to db ??
                 # env=env,
-                # TODO: save "certformat" to db ??
+                # TODO v2: save "certformat" to db ??
                 # certformat=certformat,
             )
             if note:
@@ -236,6 +262,51 @@ def listtemplates(request):
 def pingca(request):
     url = f'{WINDOWS_URL}/pingca'
     response = requests.get(url)
+    return HttpResponse(response)
+
+
+@api_view(['POST', 'GET'])
+def run_scanner_view(request, id=None):
+    # TODO: block next request to run_scanner_view untill scan session has finished
+    # TODO: add api endpoint to commands
+    if request.method == 'POST':
+        query = request.data
+    elif request.method == 'GET':
+        query = request.query_params
+    SCANNER_SECRET_KEY = db_settings.scanner_secret_key
+    secret_key = query.get('secret_key')
+    if SCANNER_SECRET_KEY != secret_key:
+        response = f'secret_key is invalid.\n'
+        return HttpResponse(response)
+    content_type = query.get('content_type')
+    if id is None and content_type in ['certificate_request', 'host']:
+        response = ''
+        return HttpResponse(response)
+    if id is not None and content_type == 'certificate_request':
+        try:
+            certificate_request = CertificateRequest.objects.get(id=id)
+            Scanner().scan_db_certficate(certificate_request)
+            response = 'Scan has been performed.\n'
+            # TODO: return info about certificate
+        except Certificate.DoesNotExist:
+            response = f'Certificate with id {id} doesnt exist.\n'
+    elif id is not None and content_type == 'host':
+        try:
+            host = Host.objects.get(id=id)
+            Scanner().scan_host(host)
+            response = 'Scan has been performed.\n'
+            # TODO: return info about certificate
+        except Certificate.DoesNotExist:
+            response = f'Certificate with id {id} doesnt exist.\n'
+    elif id is None and content_type == 'network':
+        response = 'Scanning started...\n'
+        celery_scan_network().delay()
+    elif id is None and content_type == 'certificate_requests':
+        response = 'Scanning started...\n'
+        celery_scan_db_certificates().delay()
+    elif id is None and content_type == 'hosts':
+        response = 'Scanning started...\n'
+        celery_scan_hosts().delay()
     return HttpResponse(response)
 
 

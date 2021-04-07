@@ -120,10 +120,14 @@ ALLOWED_CNS = [
     'DigiCert SHA2 Secure Server CA',
     'GTS CA 1O1',
 ]
+# TODO: db_settings.enable_mail_notification
+ENABLE_MAIL_NOTIFICATIONS = config('ENABLE_MAIL_NOTIFICATIONS', cast=bool)
+SCANNER_SECRET_KEY = config('SCANNER_SECRET_KEY', cast=str)
+ENABLE_TEMPLATE_RIGHTS_VALIDATION = config('ENABLE_TEMPLATE_RIGHTS_VALIDATION', cast=bool)
 # mail
 
-# EMAIL_BACKEND = 'pki_bridge.backends.ConfiguredEmailBackend'
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_BACKEND = 'pki_bridge.backends.ConfiguredEmailBackend'
+# EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_SUBJECT_PREFIX = '[Pki bridge]'
 EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD')
 # EMAIL_HOST_USER = 'menan@leonteq.com'

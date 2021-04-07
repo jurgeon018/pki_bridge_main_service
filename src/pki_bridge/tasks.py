@@ -7,13 +7,24 @@ from pki_bridge.core.scanner import Scanner
 @periodic_task(run_every=timedelta(minutes=1))
 def celery_scan_network_periodically():
     print(f'celery_scan_network_periodically started in {datetime.now()}')
-    # celery_scan_network.delay()
+    celery_scan_network.delay()
     return f'celery_scan_network_periodically started in {datetime.now()}'
 
 
-@shared_task
-def celery_scan_network():
+@shared_task(bind=True)
+def celery_scan_network(self):
+    # print(self)
     Scanner().scan_network()
+
+
+@shared_task(bind=True)
+def celery_scan_db_certificates(self):
+    Scanner().scan_db_certificates()
+
+
+@shared_task(bind=True)    
+def celery_scan_hosts(self):
+    Scanner().scan_hosts()
 
 
 # from celery.schedules import crontab
@@ -27,7 +38,7 @@ def celery_test_every_10_seconds():
     return f'celery_test_every_10_seconds finished in {datetime.now()}'
 
 
-@shared_task
-def celery_test():
+@shared_task(bind=True)
+def celery_test(self):
     print(f'celery_test started in {datetime.now()}')
     return f'celery_test finished in {datetime.now()}'

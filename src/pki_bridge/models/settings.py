@@ -25,6 +25,8 @@ class PkiFieldsMixin(models.Model):
     chain = models.TextField()
 
     days_to_expire = models.PositiveIntegerField(default=30)
+    scanner_secret_key = models.SlugField()
+    enable_template_rights_validation = models.BooleanField(default=False)
 
     def save(self, *args, **kwargs):
         old_days_to_expire = self.days_to_expire
@@ -44,6 +46,9 @@ class PkiFieldsMixin(models.Model):
         self.reset_period = settings.RESET_PERIOD
         self.allow_use_file_as_ldap_results = settings.ALLOW_USE_FILE_AS_LDAP_RESULTS
         self.days_to_expire = settings.DAYS_TO_EXPIRE
+        self.scanner_secret_key = settings.SCANNER_SECRET_KEY
+        self.enable_template_rights_validation = settings.ENABLE_TEMPLATE_RIGHTS_VALIDATION
+
         with open(BASE_DIR / 'fixtures' / 'key.key') as f:
             self.ca = f.read()
         with open(BASE_DIR / 'fixtures' / 'cer.cer') as f:

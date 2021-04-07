@@ -21,30 +21,16 @@ from pki_bridge.core.converter import (
 from pki_bridge.models import (
     # Network,
     CertificateRequest,
+    CertificateRequestScan,
     Certificate,
-    Scan,
+    HostScan,
     Host,
 )
 
 
 logger = logging.getLogger(__name__)
-settings.ENABLE_MAIL_NOTIFICATION = False
 
-
-class Scanner:
-    '''
-    Scanner().scan_network()
-    Scanner().get_cert_of_host()
-    Scanner().get_pem_of_host()
-    '''
-    # https://www.google.com/search?q=openssl+get+certificate+info+from+website
-    # https://www.sslshopper.com/article-most-common-openssl-commands.html
-    # https://stackoverflow.com/questions/7885785/using-openssl-to-get-the-certificate-from-a-server
-    # https://gist.github.com/gdamjan/55a8b9eec6cf7b771f92021d93b87b2c
-
-    def scan_network(self):
-        # self.scan_hosts()
-        self.scan_db_certificates()
+class DbCertificatesScanner:
     
     def scan_db_certificates(self):
         start = time()
@@ -53,7 +39,7 @@ class Scanner:
         certificates = CertificateRequest.objects.all()
         # TODO: filter certificates which hasnt been scanned yet
         # certificates = certificates.filter()
-        certificates = certificates[10:40]
+        # certificates = certificates[10:40]
 
         #  TODO: per_page = db_settings.certificates_per_page
         per_page = 8
@@ -62,7 +48,7 @@ class Scanner:
         page_numbers = paginated_certificates.page_range
         for page_number in page_numbers:
             certificates_page = paginated_certificates.page(page_number)
-            thread = Thread(target=self.scan_hosts_page, args=[certificates_page])
+            thread = Thread(target=self.scan_certificates_page, args=[certificates_page])
             thread.start()
             threads.append(thread)
         for thread in threads:
@@ -70,6 +56,136 @@ class Scanner:
         end = time() - start
         print(end)
         print(f'{len(certificates)} hosts has been scanned in {end} seconds.')
+
+    def scan_certificates_page(self, certificates_page):
+        for certificate_request in certificates_page:
+            self.scan_db_certficate(certificate_request)
+
+    def scan_db_certficate(self, certificate_request):
+        certificate = certificate_request.certificate
+        if not certificate:
+            return
+        # print()
+        # print("certificate_request: ", certificate_request)
+        # print("certificate: ", certificate)
+        certificate_request_scan = CertificateRequestScan.objects.create(
+            certificate_request=certificate_request,
+        )
+        pem = certificate.pem
+        # pem = 'sdf'
+        # pem = pem[:40] + pem[50:]
+        try:
+            pyopenssl_cert = Converter(pem, 'pem', 'pyopenssl_cert').cert
+            pyopenssl_json_cert = Converter(pyopenssl_cert, 'pyopenssl_cert', 'json').cert
+        except crypto.Error as e:
+            msg = f'Couldnt convert pem to pyopenssl certificate because of error {type(e)}. Error message: {e}.'
+            # print(msg)
+            certificate_request_scan.error_message = msg
+            certificate_request_scan.save()
+            return
+        self.mail_requesters(certificate_request, certificate_request_scan)
+
+    def mail_requesters(self, certificate_request, certificate_request_scan):
+        certificate = certificate_request.certificate
+        valid_days_to_expire = certificate.valid_days_to_expire
+        is_expired = certificate.is_expired
+        days_to_expire = db_settings.days_to_expire
+        # days_to_expire = 3000
+        is_self_signed = certificate.is_self_signed
+        is_from_different_ca = certificate.is_from_different_ca
+        # print('certificate: ', certificate)
+        # print("valid_days_to_expire: ", valid_days_to_expire)
+        # print("days_to_expire: ", days_to_expire)
+        # print("is_expired: ", is_expired)
+        # print("is_self_signed: ", is_self_signed)
+        # print("is_from_different_ca: ", is_from_different_ca, certificate.issuer_cn)
+        # return
+        link = get_obj_admin_link(certificate_request_scan)
+        if is_expired:
+            # TODO: count days or replace with date
+            days = 'a few'
+            subject = f"Certificate of {certificate_request.id} has expired {days} days ago. More info: {link}"
+            message = f''
+            recipient_list = []
+            recipient_list += [
+                'andrey.mendela@leonteq.com',
+            ]
+            if certificate_request.requester:
+                recipient_list += [
+                    certificate_request.requester.email
+                ]
+            # TODO: db_settings.enable_mail_notification
+            if settings.ENABLE_MAIL_NOTIFICATIONS:
+                send_mail(
+                    subject=subject,
+                    message=message,
+                    from_email=db_settings.default_from_email,
+                    recipient_list=recipient_list,
+                    fail_silently=False,
+                )
+        if valid_days_to_expire < days_to_expire:
+            subject = f"Expiration of {certificate_request.id} certificate."
+            message = f"Certificate of certificate_request #{certificate_request.id} will expire in {valid_days_to_expire} days. More info: {link}"
+            recipient_list = []
+            recipient_list += [
+                'andrey.mendela@leonteq.com',
+            ]
+            if certificate_request.requester:
+                recipient_list += [
+                    certificate_request.requester.email
+                ]
+            # TODO: db_settings.enable_mail_notification
+            if settings.ENABLE_MAIL_NOTIFICATIONS:
+                send_mail(
+                    subject=subject,
+                    message=message,
+                    from_email=db_settings.default_from_email,
+                    recipient_list=recipient_list,
+                    fail_silently=False,
+                )
+        if is_self_signed:
+            subject = f"Self-signed certificate on certificate_request #{certificate_request.id}."
+            message = f"Certificate of certificate_request #{certificate_request.id} is self-signed. Please change. More info: {link}"
+            recipient_list = []
+            recipient_list += [
+                'andrey.mendela@leonteq.com',
+            ]
+            if certificate_request.requester:
+                recipient_list += [
+                    certificate_request.requester.email
+                ]
+            # TODO: db_settings.enable_mail_notification
+            if settings.ENABLE_MAIL_NOTIFICATIONS:
+                send_mail(
+                    subject=subject,
+                    message=message,
+                    from_email=db_settings.default_from_email,
+                    recipient_list=recipient_list,
+                    fail_silently=False,
+                )
+        if is_from_different_ca:
+            subject = f"Foreign certificate on certificate_request #{certificate_request.id}."
+            message = f"Certificate of certificate_request #{certificate_request.id} is from different CA. Please change. More info: {link}"
+            recipient_list = []
+            recipient_list += [
+                'andrey.mendela@leonteq.com',
+            ]
+            if certificate_request.requester:
+                recipient_list += [
+                    certificate_request.requester.email
+                ]
+            # TODO: db_settings.enable_mail_notification
+            if settings.ENABLE_MAIL_NOTIFICATIONS:
+                send_mail(
+                    subject=subject,
+                    message=message,
+                    from_email=db_settings.default_from_email,
+                    recipient_list=recipient_list,
+                    fail_silently=False,
+                )
+
+
+class NetworkScanner:
 
     def scan_hosts(self):
         start = time()
@@ -111,7 +227,7 @@ class Scanner:
     def scan_host(self, host, port):
         print()
         print(f"{host}:{port}. {currentThread()}")
-        scan = Scan.objects.create(
+        scan = HostScan.objects.create(
             host=host,
             port=port,
         )
@@ -121,6 +237,7 @@ class Scanner:
         if not isinstance(pyopenssl_cert, crypto.X509):
             msg = f'{host}:{port} didnt return certificate.'
             msg += f'Error: {pyopenssl_cert}({type(pyopenssl_cert)})'
+            raise(msg)
             scan.error_message = msg
             scan.save()
             return
@@ -167,6 +284,7 @@ class Scanner:
         # print("is_self_signed: ", is_self_signed)
         # print("is_from_different_ca: ", is_from_different_ca)
         # return
+        # TODO: analytics: save to db which mail were sent
         link = get_obj_admin_link(scan)
         if is_expired:
             # TODO: count days or replace with date
@@ -181,6 +299,7 @@ class Scanner:
                 recipient_list += [
                     host.contacts,
                 ]
+            # TODO: db_settings.enable_mail_notification
             if settings.ENABLE_MAIL_NOTIFICATIONS:
                 send_mail(
                     subject=subject,
@@ -200,6 +319,7 @@ class Scanner:
                 recipient_list += [
                     host.contacts,
                 ]
+            # TODO: db_settings.enable_mail_notification
             if settings.ENABLE_MAIL_NOTIFICATIONS:
                 send_mail(
                     subject=subject,
@@ -219,6 +339,7 @@ class Scanner:
                 recipient_list += [
                     host.contacts,
                 ]
+            # TODO: db_settings.enable_mail_notification
             if settings.ENABLE_MAIL_NOTIFICATIONS:
                 send_mail(
                     subject=subject,
@@ -238,6 +359,7 @@ class Scanner:
                 recipient_list += [
                     host.contacts,
                 ]
+            # TODO: db_settings.enable_mail_notification
             if settings.ENABLE_MAIL_NOTIFICATIONS:
                 send_mail(
                     subject=subject,
@@ -345,3 +467,20 @@ class Scanner:
         context[host]['logjam_vuln'] = endpoint_data['details']['logjam']
         context[host]['drownVulnerable'] = endpoint_data['details']['drownVulnerable']
         return context
+
+
+class Scanner(NetworkScanner, DbCertificatesScanner):
+    '''
+    Scanner().scan_network()
+    Scanner().get_cert_of_host()
+    Scanner().get_pem_of_host()
+    '''
+    # https://www.google.com/search?q=openssl+get+certificate+info+from+website
+    # https://www.sslshopper.com/article-most-common-openssl-commands.html
+    # https://stackoverflow.com/questions/7885785/using-openssl-to-get-the-certificate-from-a-server
+    # https://gist.github.com/gdamjan/55a8b9eec6cf7b771f92021d93b87b2c
+
+    def scan_network(self):
+        self.scan_hosts()
+        self.scan_db_certificates()
+

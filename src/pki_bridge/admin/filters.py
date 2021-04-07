@@ -20,4 +20,8 @@ class CertificateFilter(AutocompleteFilter):
     title = 'certificate'
     field_name = 'certificate'
 
+class CertificateRequestFilter(AutocompleteFilter):
+    title = 'certificate_request'
+    field_name = 'certificate_request'
+
 

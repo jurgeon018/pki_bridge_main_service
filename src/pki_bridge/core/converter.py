@@ -113,7 +113,7 @@ class Converter(object):
     def get_func(self, from_, to):
         formats_mapper = self.get_formats_mapper()
         func = formats_mapper[from_][to]
-        # TODO: log openssl version here.
+        # TODO: log openssl version here.(or somewhere, where it is really used.)
         return func
 
     # convertors functions
@@ -241,8 +241,8 @@ class Converter(object):
 
     def empty_cert(self, cert, from_, to):
         raise FunctionNotImplemented(f"Cannot convert from '{from_}' to '{to}'")
-        return "Not Implemented"
-        return None
+        # return "Not Implemented"
+        # return None
 
     # utils
 

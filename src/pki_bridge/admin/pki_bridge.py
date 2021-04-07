@@ -69,6 +69,16 @@ class CommandAdmin(BaseMixin, admin.ModelAdmin):
     ]
 
 
+class TemplateInline(admin.TabularInline):
+    model = ProjectUser.templates.through
+    extra = 0
+    verbose_name = 'Template right'
+    verbose_name_plural = 'Template rights'
+
+
 @admin.register(ProjectUser)
 class ProjectUser(UserAdmin):
     search_fields = ['username']
+    inlines = [
+        TemplateInline,
+    ]

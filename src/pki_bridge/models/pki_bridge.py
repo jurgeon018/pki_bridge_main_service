@@ -18,6 +18,7 @@ class Command(TimeMixin, ActiveMixin, AuthorMixin):
 
 
 class ProjectUser(AbstractUser):
+    templates = models.ManyToManyField(to='pki_bridge.Template', blank=True)
 
     def __str__(self):
         return f'{self.username}'

@@ -6,11 +6,13 @@ from pki_bridge.core.utils import get_admin_url
 from pki_bridge.admin.filters import (
     HostFilter,
     NetworkFilter,
+    CertificateRequestFilter,
 )
 from pki_bridge.models import (
     Network,
     Host,
-    Scan,
+    HostScan,
+    CertificateRequestScan,
 )
 from pki_bridge.admin.mixins import (
     BaseMixin,
@@ -101,8 +103,8 @@ class HostAdmin(BaseMixin, admin.ModelAdmin):
     ]
 
 
-@admin.register(Scan)
-class ScanAdmin(admin.ModelAdmin):
+@admin.register(HostScan)
+class HostScanAdmin(admin.ModelAdmin):
     def has_add_permission(self, request):
         return False
 
@@ -129,4 +131,29 @@ class ScanAdmin(admin.ModelAdmin):
         'updated',
     ]
 
-    
+
+@admin.register(CertificateRequestScan)
+class CertificateRequestScanAdmin(admin.ModelAdmin):
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    list_display = [
+        'id',
+        'certificate_request',
+        'created',
+        'updated',
+    ]
+    list_filter = [
+        CertificateRequestFilter,
+        'created',
+        'updated',
+    ]
+    autocomplete_fields = [
+        'certificate_request',
+    ]
