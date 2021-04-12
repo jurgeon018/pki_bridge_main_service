@@ -124,8 +124,7 @@ class HostScanAdmin(admin.ModelAdmin):
         'host',
     ]
     list_filter = [
-        # TODO: link to certificate page
-        # TODO: autocomplete
+
         HostFilter,
         'created',
         'updated',

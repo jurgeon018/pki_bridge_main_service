@@ -2,6 +2,7 @@ from os import name
 from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.auth.models import Group, Permission
+from django.contrib.sites.models import Site
 
 from decouple import config
 import json
@@ -17,6 +18,7 @@ from pki_bridge.models import (
     Network,
     ProjectUser,
     AllowedCN,
+    Port,
 )
 
 
@@ -153,7 +155,7 @@ def gen_networks_dict():
         try:
             net4 = ipaddress.ip_network(network)
         except ValueError as e:
-            print(e)
+            # print(e)
             continue
         hosts = []
         for host in net4.hosts():
@@ -169,7 +171,7 @@ def gen_networks_dict():
             'hosts_amount': len(hosts),
             'hosts': hosts,
         })
-        print(f'{network}: {len(hosts)}')
+        # print(f'{network}: {len(hosts)}')
     return networks
 
 
@@ -188,7 +190,7 @@ def gen_networks(
     with open(path) as f:
         networks = json.load(f)
     for i, json_network in enumerate(networks):
-        print(f'Network {i+1} of {len(networks)}')
+        # print(f'Network {i+1} of {len(networks)}')
         if not Network.objects.filter(
             ip=json_network['ip'],
             mask=json_network['mask'],
@@ -200,7 +202,8 @@ def gen_networks(
                 vlan_id=json_network['vlan_id'],
             )
         else:
-            print(json_network['ip'])
+            pass
+            # print(json_network['ip'])
 
 
 def gen_hosts(
@@ -221,7 +224,7 @@ def gen_hosts(
         with open(path, 'r') as f:
             json_hosts = json.load(f)
         for i, json_host in enumerate(json_hosts):
-            print(f'json host {i+1} of {len(json_hosts)}')
+            # print(f'json host {i+1} of {len(json_hosts)}')
             hosts.append(Host(**{
                 "network": None,
                 "name": json_host['host'],
@@ -233,14 +236,14 @@ def gen_hosts(
         with open(path, 'r') as f:
             json_networks = json.load(f)
         for i, json_network in enumerate(json_networks):
-            print(f'Network {i+1} of {len(json_networks)}')
+            # print(f'Network {i+1} of {len(json_networks)}')
             network = Network.objects.get(
                 ip=json_network['ip'],
                 mask=json_network['mask'],
             )
             for j, json_host in enumerate(json_network['hosts']):
-                print(f"Host {j+1} of {len(json_network['hosts'])} of network {i+1}")
-                # print("json_host: ", json_host)
+                # print(f"Host {j+1} of {len(json_network['hosts'])} of network {i+1}")
+                print("json_host: ", json_host)
                 hosts.append(Host(
                     host=json_host['host'],
                     network=network,
@@ -259,3 +262,26 @@ def gen_allowed_cn(
         c = AllowedCN.objects.create(
             name=cn,
         )
+
+
+def gen_ports(
+    Port=Port,
+        ):
+    Port.objects.all().delete()
+    ports = settings.PORTS
+    for port in ports:
+        p = Port.objects.create(
+            name=port
+        )
+
+
+
+
+def set_domain_name(
+    domain=None,
+    Site=Site,
+        ):
+    site = Site.objects.get_current()
+    site.domain = domain
+    site.name = domain
+    site.save()

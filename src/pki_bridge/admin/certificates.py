@@ -59,7 +59,6 @@ class Certificate(BaseMixin, admin.ModelAdmin):
         'issued_to',
     ]
     
-
 @admin.register(CertificateRequest)
 class CertificateRequestAdmin(BaseMixin, admin.ModelAdmin):
 
@@ -123,7 +122,6 @@ class CertificateRequestAdmin(BaseMixin, admin.ModelAdmin):
         'domain',
         'csr',
         'certificate',
-        # TODO: put link to certificate page
     ]
     list_display_links = [
         'id',

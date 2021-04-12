@@ -49,6 +49,8 @@ from pki_bridge.core.utils import (
 
 
 def perform_ldap_search(ldap_username, ldap_password, attributes=['sAMAccountName', 'mail', ]):
+    assert ldap_username is not None
+    assert ldap_password is not None
     # group = 'cn=FpprodLdap,ou=Service Accounts,ou=Delegation,dc=fpprod,dc=corp'
     # group = 'cn=domain users,ou=users,dc=fpprod,dc=corp'
     base_dn = 'dc=fpprod,dc=corp'

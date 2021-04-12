@@ -97,17 +97,11 @@ set_domain_name:
 	python3 src/manage.py set_domain_name -d chvirmendev01.fpprod.corp
 
 prep_db:
-	make gen_networks_json
 	make rmdb
 	make rmmig
 	make mm
 	make cpdatamig
 	make m
-	# TODO: move gen_settings to data migration
-	make gen_settings
-	# TODO: move gen_allowed_cn to data migration
-	make gen_allowed_cn
-	# make set_domain_name
 	make r
 
 
@@ -217,3 +211,8 @@ findjs:
 
 findcsv:
 	find ./src/ -name '*.csv' | xargs wc -l
+
+
+
+
+# pytest

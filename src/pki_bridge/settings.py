@@ -1,16 +1,17 @@
 from pathlib import Path
-from decouple import config
+from decouple import config, Csv
 import re
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = config('SECRET_KEY')
 DEBUG = config('DEBUG')
+DOMAIN = config('DOMAIN', cast=str)
 ALLOWED_HOSTS = [
     "127.0.0.1",
     'localhost',
+    DOMAIN,
     "*",
-    # TODO: add real domain
 ]
 INSTALLED_APPS = [
     'admin_auto_filters',
@@ -28,6 +29,8 @@ INSTALLED_APPS = [
 
     'pki_bridge',
 ]
+APPEND_SLASH = True
+# APPEND_SLASH = False
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -106,24 +109,28 @@ AUTH_USER_MODEL = 'pki_bridge.ProjectUser'
 SITE_ID = 1
 
 # project settings
-LDAP_USERNAME = config('LDAP_USERNAME')
-LDAP_PASSWORD = config('LDAP_PASSWORD')
+
+PORTS = config('PORTS', cast=Csv())
+LDAP_USERNAME = config('LDAP_USERNAME', cast=str)
+LDAP_PASSWORD = config('LDAP_PASSWORD', cast=str)
 ALLOWED_REQUESTS = config('ALLOWED_REQUESTS', cast=int)
 RESET_PERIOD = config('RESET_PERIOD', cast=int)
-UPDATE_TEMPLATES_FROM_CA = config('UPDATE_TEMPLATES_FROM_CA', cast=bool)
-ALLOW_USE_FILE_AS_LDAP_RESULTS = config('ALLOW_USE_FILE_AS_LDAP_RESULTS', cast=bool)
 SCAN_TIMEOUT = config('SCAN_TIMEOUT', cast=int)
 DAYS_TO_EXPIRE = config('DAYS_TO_EXPIRE', cast=int)
+CERTIFICATES_PER_PAGE = config('CERTIFICATES_PER_PAGE', cast=int)
+HOSTS_PER_PAGE = config('HOSTS_PER_PAGE', cast=int)
 ALLOWED_CNS = [
-    # TODO: add real CNs
-    # '',
     'DigiCert SHA2 Secure Server CA',
     'GTS CA 1O1',
 ]
-# TODO: db_settings.enable_mail_notification
 ENABLE_MAIL_NOTIFICATIONS = config('ENABLE_MAIL_NOTIFICATIONS', cast=bool)
 SCANNER_SECRET_KEY = config('SCANNER_SECRET_KEY', cast=str)
 ENABLE_TEMPLATE_RIGHTS_VALIDATION = config('ENABLE_TEMPLATE_RIGHTS_VALIDATION', cast=bool)
+VALIDATE_TEMPLATES = config('VALIDATE_TEMPLATES', cast=bool)
+UPDATE_TEMPLATES_FROM_CA = config('UPDATE_TEMPLATES_FROM_CA', cast=bool)
+ALLOW_USE_FILE_AS_LDAP_RESULTS = config('ALLOW_USE_FILE_AS_LDAP_RESULTS', cast=bool)
+# local project settings
+MOCK_INTERMEDIARY_RESPONSE = True
 # mail
 
 EMAIL_BACKEND = 'pki_bridge.backends.ConfiguredEmailBackend'

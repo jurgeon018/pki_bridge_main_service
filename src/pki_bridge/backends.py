@@ -17,9 +17,9 @@ class ConfiguredEmailBackend(EmailBackend):
             use_ssl=db_settings.email_use_ssl if use_ssl is None else use_ssl,
             timeout=db_settings.timeout if timeout is None else timeout,
             ssl_keyfile=ssl_keyfile,
-            # TODO: ssl_keyfile=db_settings.ssl_keyfile if ssl_keyfile is not None else ssl_keyfile,
+            # TODOv2: ssl_keyfile=db_settings.ssl_keyfile if ssl_keyfile is not None else ssl_keyfile,
             ssl_certfile=ssl_certfile,
-            # TODO: ssl_certfile=db_settings.ssl_certfile if ssl_certfile is not None else ssl_certfile,
+            # TODOv2: ssl_certfile=db_settings.ssl_certfile if ssl_certfile is not None else ssl_certfile,
             **kwargs
         )
 

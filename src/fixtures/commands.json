@@ -80,17 +80,9 @@
         "reset_period": 1
     },
     {
-        "name": "createkeyandcsr",
+        "name": "run_scanner_view",
         "description": "???",
-        "url": "/api/v1/createkeyandcsr/",
-        "allowed_requests": 30,
-        "is_active": true,
-        "reset_period": 1
-    },
-    {
-        "name": "createkeyandsign",
-        "description": "???",
-        "url": "/api/v1/createkeyandsign/",
+        "url": "/api/v1/run_scanner_view/",
         "allowed_requests": 30,
         "is_active": true,
         "reset_period": 1
@@ -103,4 +95,5 @@
         "is_active": true,
         "reset_period": 1
     }
+
 ]

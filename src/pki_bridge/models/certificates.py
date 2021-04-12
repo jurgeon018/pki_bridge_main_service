@@ -3,9 +3,9 @@ from pki_bridge.models.mixins import TimeMixin, ActiveMixin, AuthorMixin
 from pki_bridge.models.settings import AllowedCN
 from pki_bridge.core.converter import Converter
 from pki_bridge.core.utils import make_timezone_aware
-from pki_bridge.conf import db_settings
 from datetime import datetime
 from django.utils import timezone
+
 
 class Template(TimeMixin, ActiveMixin, AuthorMixin):
     name = models.CharField(unique=True, max_length=255)
@@ -35,9 +35,10 @@ class Requester(TimeMixin, AuthorMixin):
         verbose_name_plural = 'Requesters'
 
 
-
 class Note(TimeMixin, AuthorMixin):
-    certificate_request = models.ForeignKey(to='pki_bridge.CertificateRequest', on_delete=models.SET_NULL, null=True, blank=True)
+    certificate_request = models.ForeignKey(
+        to='pki_bridge.CertificateRequest', on_delete=models.SET_NULL, null=True, blank=True
+    )
     text = models.TextField()
 
     def __str__(self):
@@ -55,17 +56,18 @@ class CertificateRequest(TimeMixin, AuthorMixin):
     SAN = models.TextField()
     csr = models.TextField()
     certificate = models.OneToOneField(to='pki_bridge.Certificate', on_delete=models.SET_NULL, null=True, blank=True)
-    
+
     def __str__(self):
         return f'{self.requester}'
 
     class Meta:
+        ordering = ['id', ]
         verbose_name = "CertificateRequest"
         verbose_name_plural = "CertificateRequests"
 
 
 class Certificate(TimeMixin, AuthorMixin):
-    # TODO: show text as
+    # TODO: show as text in admin 
     pem = models.TextField(null=False, blank=False)
 
     cert_info = models.TextField(null=True, blank=True)
@@ -89,22 +91,22 @@ class Certificate(TimeMixin, AuthorMixin):
 
     def save(self, *args, **kwargs):
         pem = self.pem
-        # cryptography_json_cert = Converter(pem, 'pem', 'json').cert 
+        # cryptography_json_cert = Converter(pem, 'pem', 'json').cert
         pyopenssl_cert = Converter(pem, 'pem', 'pyopenssl_cert').cert
         pyopenssl_json_cert = Converter(pyopenssl_cert, 'pyopenssl_cert', 'json').cert
 
-        self.issued_to=pyopenssl_json_cert['issued_to']
-        self.issuer_ou=pyopenssl_json_cert['issuer_ou']
-        self.issuer_cn=pyopenssl_json_cert['issuer_cn']
-        self.issued_o=pyopenssl_json_cert['issued_o']
-        self.issuer_c=pyopenssl_json_cert['issuer_c']
-        self.issuer_o=pyopenssl_json_cert['issuer_o']
+        self.issued_to = pyopenssl_json_cert['issued_to']
+        self.issuer_ou = pyopenssl_json_cert['issuer_ou']
+        self.issuer_cn = pyopenssl_json_cert['issuer_cn']
+        self.issued_o = pyopenssl_json_cert['issued_o']
+        self.issuer_c = pyopenssl_json_cert['issuer_c']
+        self.issuer_o = pyopenssl_json_cert['issuer_o']
 
-        self.cert_sha1=pyopenssl_json_cert['cert_sha1']
-        self.cert_sans=pyopenssl_json_cert['cert_sans']
-        self.cert_alg=pyopenssl_json_cert['cert_alg']
-        self.cert_ver=pyopenssl_json_cert['cert_ver']
-        self.cert_sn=pyopenssl_json_cert['cert_sn']
+        self.cert_sha1 = pyopenssl_json_cert['cert_sha1']
+        self.cert_sans = pyopenssl_json_cert['cert_sans']
+        self.cert_alg = pyopenssl_json_cert['cert_alg']
+        self.cert_ver = pyopenssl_json_cert['cert_ver']
+        self.cert_sn = pyopenssl_json_cert['cert_sn']
 
         dt_format = '%Y-%m-%d'
         valid_from = pyopenssl_json_cert['valid_from']
@@ -127,14 +129,13 @@ class Certificate(TimeMixin, AuthorMixin):
             from_different_ca = False
         return from_different_ca
 
-
     @property
     def is_self_signed(self):
         pem = self.pem
         pyopenssl_cert = Converter(pem, 'pem', 'pyopenssl_cert').cert
         pyopenssl_json_cert = Converter(pyopenssl_cert, 'pyopenssl_cert', 'json').cert
         self_signed = pyopenssl_json_cert['self_signed']
-        print(pyopenssl_json_cert)
+        # print(pyopenssl_json_cert)
         return self_signed
 
     # TODO show valid_days_to_expire fields in admin
@@ -178,7 +179,7 @@ class Certificate(TimeMixin, AuthorMixin):
 
     def __str__(self):
         return f'{self.id}'
-    
+
     class Meta:
         verbose_name = 'Certificate'
         verbose_name_plural = 'Certificates'

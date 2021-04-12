@@ -1,4 +1,8 @@
+from django.conf import settings
 from django.db import migrations
+from django.contrib.contenttypes.management import create_contenttypes
+from django.contrib.auth.management import create_permissions
+
 from pki_bridge.management import (
     gen_readonly_group,
     gen_user,
@@ -7,26 +11,25 @@ from pki_bridge.management import (
     gen_networks,
     gen_hosts,
     gen_allowed_cn,
+    gen_ports,
 )
-from django.contrib.contenttypes.management import create_contenttypes
-from django.contrib.auth.management import create_permissions
-
+from pki_bridge.models.settings import ProjectSettings
 
 def gen_contenttypes(apps):
     app_config = apps.get_app_config('pki_bridge')
     app_config.models_module = app_config.models_module or True
-    create_contenttypes(app_config)
-    create_permissions(app_config)
+    create_contenttypes(app_config, verbosity=1)
+    create_permissions(app_config, verbosity=1)
 
     app_config = apps.get_app_config('auth')
     app_config.models_module = app_config.models_module or True
-    create_contenttypes(app_config)
-    create_permissions(app_config)
+    create_contenttypes(app_config, verbosity=1)
+    create_permissions(app_config, verbosity=1)
 
     app_config = apps.get_app_config('contenttypes')
     app_config.models_module = app_config.models_module or True
-    create_contenttypes(app_config)
-    create_permissions(app_config)
+    create_contenttypes(app_config, verbosity=1)
+    create_permissions(app_config, verbosity=1)
 
 
 def migrate_readonly_group(apps, schema_editor):
@@ -63,8 +66,11 @@ def migrate_hosts(apps, schema_editor):
 
 
 def migrate_settings(apps, schema_editor):
-    ProjectSettings = apps.get_model('pki_bridge', 'ProjectSettings')
-    ProjectSettings.get_solo().update_settings()
+    # ProjectSettings = apps.get_model('pki_bridge', 'ProjectSettings')
+    settings = ProjectSettings.get_solo()
+    # settings.update_settings()
+    # settings.save()
+    print(settings.validate_templates)
 
 
 def migrate_user(apps, schema_editor):
@@ -77,10 +83,22 @@ def migrate_allowed_cn(apps, schema_editor):
     gen_allowed_cn(AllowedCN=AllowedCN)
 
 
+def migrate_ports(apps, schema_editor):
+    Port = apps.get_model('pki_bridge', 'Port')
+    gen_ports(Port=Port)
+
+
+def migrate_domain_name(apps, schema_editor):
+    domain = settings.DOMAIN
+    Site = apps.get_model('sites', 'Site')
+    Site.objects.all().delete()
+    Site.objects.create(domain=domain, name='webapi domain')
+
 class Migration(migrations.Migration):
 
     dependencies = [
         ('pki_bridge', '0001_initial'),
+        ('sites', '0002_alter_domain_unique'),
     ]
 
     operations = [
@@ -89,9 +107,9 @@ class Migration(migrations.Migration):
         migrations.RunPython(migrate_templates),
         migrations.RunPython(migrate_networks),
         migrations.RunPython(migrate_hosts),
-        # TODO: migrate_allowed_cn
-        # migrations.RunPython(migrate_allowed_cn),
-        # TODO: migrate_settings
-        # migrations.RunPython(migrate_settings),
+        migrations.RunPython(migrate_settings),
+        migrations.RunPython(migrate_allowed_cn),
+        migrations.RunPython(migrate_ports),
         migrations.RunPython(migrate_user),
+        migrations.RunPython(migrate_domain_name),
     ]

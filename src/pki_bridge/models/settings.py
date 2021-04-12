@@ -3,41 +3,47 @@ from django.conf import settings
 from solo.models import SingletonModel
 from django.core.exceptions import ValidationError
 from pki_bridge.models.networks import Host
+from pki_bridge.models.mixins import ActiveMixin
 
 BASE_DIR = settings.BASE_DIR
 
 
 class PkiFieldsMixin(models.Model):
-    scan_timeout = models.IntegerField(default=2)
-    update_templates_from_ca = models.BooleanField(default=False)
-    ldap_username = models.CharField(max_length=255, blank=True, null=True)
-    ldap_password = models.CharField(max_length=255, blank=True, null=True)
-    allow_use_file_as_ldap_results = models.BooleanField(blank=True, null=True)
+    validate_templates = models.BooleanField()
+    enable_mail_notifications = models.BooleanField()
+    update_templates_from_ca = models.BooleanField()
+    allow_use_file_as_ldap_results = models.BooleanField()
+    enable_template_rights_validation = models.BooleanField()
 
+    ldap_username = models.CharField(max_length=255)
+    ldap_password = models.CharField(max_length=255)
+
+    days_to_expire = models.PositiveIntegerField()
+    scan_timeout = models.IntegerField()
+    hosts_per_page = models.PositiveIntegerField(blank=True, null=True)
+    certificates_per_page = models.PositiveIntegerField(blank=True, null=True)
+    reset_period = models.PositiveIntegerField(blank=True, null=True)
     allowed_requests = models.PositiveIntegerField(
         blank=True, null=True,
         help_text='per {reset_period} hours for one IP-address',
     )
-    reset_period = models.PositiveIntegerField(blank=True, null=True)
 
     ca = models.TextField()
     intermediary = models.TextField()
     chain = models.TextField()
 
-    days_to_expire = models.PositiveIntegerField(default=30)
     scanner_secret_key = models.SlugField()
-    enable_template_rights_validation = models.BooleanField(default=False)
 
-    def save(self, *args, **kwargs):
-        old_days_to_expire = self.days_to_expire
-        super().save(*args, **kwargs)
-        new_days_to_expire = self.days_to_expire
-        if old_days_to_expire != new_days_to_expire:
-            hosts = Host.objects.all()
-            hosts.update(days_to_expire=new_days_to_expire)
+    @property
+    def ports(self):
+        return Port.objects.filter(is_active=True).values_list('name', flat=True)
 
-
-    def update_from_config(self):
+    def update_fields(self):
+        
+        self.hosts_per_page = settings.HOSTS_PER_PAGE
+        self.certificates_per_page = settings.CERTIFICATES_PER_PAGE
+        self.enable_mail_notifications = settings.ENABLE_MAIL_NOTIFICATIONS
+        self.validate_templates = settings.VALIDATE_TEMPLATES
         self.update_templates_from_ca = settings.UPDATE_TEMPLATES_FROM_CA
         self.ldap_username = settings.LDAP_USERNAME
         self.ldap_password = settings.LDAP_PASSWORD
@@ -122,10 +128,34 @@ class ProjectSettings(
     EmailSettingsFieldsMixin,
     SingletonModel,
         ):
-    def update_settings(self):
-        self.update_from_config()
+
+    def save(self, *args, **kwargs):
+        if not self.id:
+            self.update_fields()
+            self.update_mail_settings()
+            super().save(*args, **kwargs)
+        if self.id:
+            old_days_to_expire = self.days_to_expire
+            super().save(*args, **kwargs)
+            new_days_to_expire = self.days_to_expire
+            if old_days_to_expire != new_days_to_expire:
+                hosts = Host.objects.all()
+                hosts.update(days_to_expire=new_days_to_expire)
+
+    def update_settings(self, *args, **kwargs):
+        self.update_fields()
         self.update_mail_settings()
         self.save()
+
+    @classmethod
+    def get_solo(cls):
+        objects = cls.objects.filter(pk=cls.singleton_instance_id)
+        if objects.exists():
+            obj = objects.first()
+        else:
+            obj = cls(pk=cls.singleton_instance_id)
+            obj.update_settings()
+        return obj
 
     def __str__(self):
         return f'{self.id}'
@@ -153,3 +183,14 @@ class AllowedCN(models.Model):
         verbose_name_plural = 'Allowed CNs'
 
 
+class Port(models.Model):
+    project_settings = models.ForeignKey(to='pki_bridge.ProjectSettings', on_delete=models.SET_NULL, blank=True, null=True)
+    name = models.PositiveIntegerField()
+    is_active = models.BooleanField(default=True)
+
+    def __str__(self):
+        return f'{self.port}'
+
+    class Meta:
+        verbose_name = "Port"
+        verbose_name_plural = "Ports"

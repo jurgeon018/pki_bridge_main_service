@@ -30,8 +30,25 @@ from pki_bridge.models import (
 
 logger = logging.getLogger(__name__)
 
+
+class ThreadWithReturnValue(Thread):
+
+    def __init__(self, group=None, target=None, name=None,
+                 args=(), kwargs={}, Verbose=None):
+        Thread.__init__(self, group, target, name, args, kwargs)
+        self._return = None
+
+    def run(self):
+        if self._target is not None:
+            self._return = self._target(*self._args, **self._kwargs)
+
+    def join(self, *args):
+        Thread.join(self, *args)
+        return self._return
+
+
 class DbCertificatesScanner:
-    
+
     def scan_db_certificates(self):
         start = time()
 
@@ -41,30 +58,43 @@ class DbCertificatesScanner:
         # certificates = certificates.filter()
         # certificates = certificates[10:40]
 
-        #  TODO: per_page = db_settings.certificates_per_page
-        per_page = 8
-
-        paginated_certificates = Paginator(certificates, per_page=per_page)
-        page_numbers = paginated_certificates.page_range
+        per_page = db_settings.certificates_per_page
+        if per_page:
+            paginated_certificates = Paginator(certificates, per_page=per_page)
+            page_numbers = paginated_certificates.page_range
+        else:
+            paginated_certificates = [certificates, ]
+            page_numbers = [1, ]
         for page_number in page_numbers:
             certificates_page = paginated_certificates.page(page_number)
-            thread = Thread(target=self.scan_certificates_page, args=[certificates_page])
+            thread = ThreadWithReturnValue(target=self.scan_certificates_page, args=[certificates_page])
+            # thread = Thread(target=self.scan_certificates_page, args=[certificates_page])
             thread.start()
             threads.append(thread)
+        scan_results = []
         for thread in threads:
-            thread.join()
+            scan_result = thread.join()
+            scan_results.extend(scan_result)
+        self.analyze_scan_results(scan_results)
         end = time() - start
-        print(end)
+        # print(end)
         print(f'{len(certificates)} hosts has been scanned in {end} seconds.')
 
+    def analyze_scan_results(self, scan_results):
+        # TODOv2: analyze_scan_results
+        pass
+
     def scan_certificates_page(self, certificates_page):
+        scan_results = []
         for certificate_request in certificates_page:
-            self.scan_db_certficate(certificate_request)
+            scan_result = self.scan_db_certficate(certificate_request)
+            scan_results.append(scan_result)
+        return scan_results
 
     def scan_db_certficate(self, certificate_request):
         certificate = certificate_request.certificate
         if not certificate:
-            return
+            return 
         # print()
         # print("certificate_request: ", certificate_request)
         # print("certificate: ", certificate)
@@ -76,7 +106,7 @@ class DbCertificatesScanner:
         # pem = pem[:40] + pem[50:]
         try:
             pyopenssl_cert = Converter(pem, 'pem', 'pyopenssl_cert').cert
-            pyopenssl_json_cert = Converter(pyopenssl_cert, 'pyopenssl_cert', 'json').cert
+            Converter(pyopenssl_cert, 'pyopenssl_cert', 'json').cert
         except crypto.Error as e:
             msg = f'Couldnt convert pem to pyopenssl certificate because of error {type(e)}. Error message: {e}.'
             # print(msg)
@@ -105,7 +135,7 @@ class DbCertificatesScanner:
             # TODO: count days or replace with date
             days = 'a few'
             subject = f"Certificate of {certificate_request.id} has expired {days} days ago. More info: {link}"
-            message = f''
+            message = f"Certificate of {certificate_request.id} has expired {days} days ago. More info: {link}"
             recipient_list = []
             recipient_list += [
                 'andrey.mendela@leonteq.com',
@@ -114,8 +144,8 @@ class DbCertificatesScanner:
                 recipient_list += [
                     certificate_request.requester.email
                 ]
-            # TODO: db_settings.enable_mail_notification
-            if settings.ENABLE_MAIL_NOTIFICATIONS:
+            if db_settings.enable_mail_notifications:
+            # if settings.ENABLE_MAIL_NOTIFICATIONS:
                 send_mail(
                     subject=subject,
                     message=message,
@@ -134,8 +164,8 @@ class DbCertificatesScanner:
                 recipient_list += [
                     certificate_request.requester.email
                 ]
-            # TODO: db_settings.enable_mail_notification
-            if settings.ENABLE_MAIL_NOTIFICATIONS:
+            if db_settings.enable_mail_notifications:
+                # if settings.ENABLE_MAIL_NOTIFICATIONS:
                 send_mail(
                     subject=subject,
                     message=message,
@@ -154,8 +184,8 @@ class DbCertificatesScanner:
                 recipient_list += [
                     certificate_request.requester.email
                 ]
-            # TODO: db_settings.enable_mail_notification
-            if settings.ENABLE_MAIL_NOTIFICATIONS:
+            if db_settings.enable_mail_notifications:
+            # if settings.ENABLE_MAIL_NOTIFICATIONS:
                 send_mail(
                     subject=subject,
                     message=message,
@@ -174,8 +204,8 @@ class DbCertificatesScanner:
                 recipient_list += [
                     certificate_request.requester.email
                 ]
-            # TODO: db_settings.enable_mail_notification
-            if settings.ENABLE_MAIL_NOTIFICATIONS:
+            if db_settings.enable_mail_notifications:
+            # if settings.ENABLE_MAIL_NOTIFICATIONS:
                 send_mail(
                     subject=subject,
                     message=message,
@@ -192,41 +222,47 @@ class NetworkScanner:
 
         threads = []
         hosts = Host.objects.filter(is_active=True)
-        # hosts = hosts.order_by('id')
-        # hosts = hosts[10:40]
-
-        # TODO: per_page = db_settings.per_page
-        per_page = 8
-        paginated_hosts = Paginator(hosts, per_page=per_page)
-        page_numbers = paginated_hosts.page_range
+        per_page = db_settings.hosts_per_page
+        if per_page:
+            paginated_hosts = Paginator(hosts, per_page=per_page)
+            page_numbers = paginated_hosts.page_range
+        else:
+            paginated_hosts = [hosts, ]
+            page_numbers = [1, ]
         for page_number in page_numbers:
             hosts_page = paginated_hosts.page(page_number)
-            thread = Thread(target=self.scan_hosts_page, args=[hosts_page])
+            # thread = Thread(target=self.scan_hosts_page, args=[hosts_page])
+            thread = ThreadWithReturnValue(target=self.scan_hosts_page, args=[hosts_page])
             thread.start()
             threads.append(thread)
+        scan_results = []
         for thread in threads:
-            thread.join()
+            scan_result = thread.join()
+            scan_results.extend(scan_result)
+        self.analyze_scan_results(scan_results)
         end = time() - start
-        print(end)
+        # print(end)
         print(f'{len(hosts)} hosts has been scanned in {end} seconds.')
+
+    def analyze_scan_results(self, scan_results):
+        # TODOv2: analyze_scan_results
+        pass
 
     def scan_hosts_page(self, hosts_page):
         for host in hosts_page:
             if not self.host_exists(host):
                 print(f'host {host} doesnt exist')
                 return
-            ports = [
-                443,
-                # 8081,
-                # 8443,
-                # 8083,
-            ]
+            ports = db.ports
+            scan_results = []
             for port in ports:
-                self.scan_host(host, port)
+                scan_result = self.scan_host(host, port)
+                scan_results.append(scan_result)
+            return scan_results
 
     def scan_host(self, host, port):
-        print()
-        print(f"{host}:{port}. {currentThread()}")
+        # print()
+        # print(f"{host}:{port}. {currentThread()}")
         scan = HostScan.objects.create(
             host=host,
             port=port,
@@ -240,35 +276,42 @@ class NetworkScanner:
             raise(msg)
             scan.error_message = msg
             scan.save()
-            return
+            return {
+
+            }
         pem = self.get_pem_of_host(host.name, port)
-        pyopenssl_pem = Converter(pyopenssl_cert, 'pyopenssl_cert', 'pem').cert 
+        pyopenssl_pem = Converter(pyopenssl_cert, 'pyopenssl_cert', 'pem').cert
         if pyopenssl_pem != pem:
             msg = f"'openssl s_client -connect {host}:{port}' "
-            msg += f"and 'SSL.Connection.get_peer_certificate()' "
-            msg += f"returted different pem certificates."
+            msg += "and 'SSL.Connection.get_peer_certificate()' "
+            msg += "returted different pem certificates."
             scan.error_message = msg
             scan.save()
-            return
+            return {
+
+            }
         pyopenssl_json_cert = Converter(pyopenssl_cert, 'pyopenssl_cert', 'json').cert
         # pyopenssl_json_cert = self.analyze_ssl(host.name, pyopenssl_json_cert) 
         pyopenssl_cert2 = Converter(pem, 'pem', 'pyopenssl_cert').cert
         pyopenssl_json_cert2 = Converter(pyopenssl_cert2, 'pyopenssl_cert', 'json').cert
         if pyopenssl_json_cert2 != pyopenssl_json_cert:
-            msg = f"'Pem certificates of "
+            msg = "'Pem certificates of "
             msg += f"'openssl s_client -connect {host}:{port}' "
-            msg += f"and 'SSL.Connection.get_peer_certificate()' "
-            msg += f"returted different json values after convertations."
+            msg += "and 'SSL.Connection.get_peer_certificate()' "
+            msg += "returted different json values after convertations."
             scan.error_message = msg
             scan.save()
-            return
+            return {
+                'error_message': msg,
+            }
         certificate = Certificate.objects.create(
             pem=pem,
         )
         # print('certificate:', certificate)
         scan.certificate = certificate
         scan.save()
-        self.mail_admins(host, port, certificate, scan)
+        result = self.mail_admins(host, port, certificate, scan)
+        return result
 
     def mail_admins(self, host, port, certificate, scan):
         valid_days_to_expire = certificate.valid_days_to_expire
@@ -284,7 +327,7 @@ class NetworkScanner:
         # print("is_self_signed: ", is_self_signed)
         # print("is_from_different_ca: ", is_from_different_ca)
         # return
-        # TODO: analytics: save to db which mail were sent
+        # TODOv2: analytics: save to db which mail was sent
         link = get_obj_admin_link(scan)
         if is_expired:
             # TODO: count days or replace with date
@@ -299,8 +342,8 @@ class NetworkScanner:
                 recipient_list += [
                     host.contacts,
                 ]
-            # TODO: db_settings.enable_mail_notification
-            if settings.ENABLE_MAIL_NOTIFICATIONS:
+            if db_settings.enable_mail_notifications:
+            # if settings.ENABLE_MAIL_NOTIFICATIONS:
                 send_mail(
                     subject=subject,
                     message=message,
@@ -319,8 +362,8 @@ class NetworkScanner:
                 recipient_list += [
                     host.contacts,
                 ]
-            # TODO: db_settings.enable_mail_notification
-            if settings.ENABLE_MAIL_NOTIFICATIONS:
+            if db_settings.enable_mail_notifications:
+            # if settings.ENABLE_MAIL_NOTIFICATIONS:
                 send_mail(
                     subject=subject,
                     message=message,
@@ -339,8 +382,8 @@ class NetworkScanner:
                 recipient_list += [
                     host.contacts,
                 ]
-            # TODO: db_settings.enable_mail_notification
-            if settings.ENABLE_MAIL_NOTIFICATIONS:
+            if db_settings.enable_mail_notifications:
+            # if settings.ENABLE_MAIL_NOTIFICATIONS:
                 send_mail(
                     subject=subject,
                     message=message,
@@ -359,8 +402,8 @@ class NetworkScanner:
                 recipient_list += [
                     host.contacts,
                 ]
-            # TODO: db_settings.enable_mail_notification
-            if settings.ENABLE_MAIL_NOTIFICATIONS:
+            if db_settings.enable_mail_notifications:
+            # if settings.ENABLE_MAIL_NOTIFICATIONS:
                 send_mail(
                     subject=subject,
                     message=message,
@@ -483,4 +526,3 @@ class Scanner(NetworkScanner, DbCertificatesScanner):
     def scan_network(self):
         self.scan_hosts()
         self.scan_db_certificates()
-

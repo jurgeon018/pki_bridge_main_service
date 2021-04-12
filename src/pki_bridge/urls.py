@@ -4,10 +4,7 @@ from django.contrib import admin
 from pki_bridge import views
 
 
-# TODO: append slash without 301 redirect
-# https://stackoverflow.com/questions/1596552/django-urls-without-a-trailing-slash-do-not-redirect
-
-
+# TODO v2: append slash without redirect
 api_urls = [
     path("listtemplates/", views.listtemplates, name='listtemplates'),
     path("pingca/", views.pingca, name='pingca'),

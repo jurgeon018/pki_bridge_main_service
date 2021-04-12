@@ -21,6 +21,7 @@ python3 -m venv venv
 source venv/bin/activate
 pip3 install -r requirements.txt
 python3 src/manage.py collectstatic --noinput
+cp src/pki_bridge/data_migrations.py src/pki_bridge/migrations/data_migrations.py
 python3 src/manage.py migrate
 # make prep_db
 

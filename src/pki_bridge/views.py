@@ -5,7 +5,7 @@ from django.utils import timezone
 from django.core.mail import send_mail
 from django.conf import settings
 from rest_framework.decorators import api_view
-
+import OpenSSL
 from decouple import config
 
 import requests
@@ -72,30 +72,13 @@ def throttle_request(requester):
             response = ""
             response += f"You've reached the limit of request({allowed_requests} per {reset_period} hours).\n"
             response += f"Try again in {minutes} minutes and {seconds} seconds.\n"
-            return HttpResponse(response)
+            return response
 
 
 def validate_SAN(SAN):
     if SAN:
         SAN = SAN.replace(' ','')
     return SAN
-
-
-def validate_certformat(certformat):
-    certformats = [k for k, _ in Converter().get_formats_mapper().items()]
-    if certformat not in certformats:
-        # formats = 'pem, der, p7b, p12'
-        formats = ', '.join(certformats)
-        response = f"\nInvalid format. Certformat must be one of: {formats}\n"
-        return HttpResponse(response)
-
-
-def signcert_file_response(pem):
-    import os
-    path = os.path.join(gettempdir(), 'file.cer')
-    with open(path, 'w') as f:
-        f.write(pem)
-    return FileResponse(open(path, 'rb'))
 
 
 def validate_template_rights(requester_email, password, template):
@@ -108,15 +91,80 @@ def validate_template_rights(requester_email, password, template):
             response = 'Password is incorrect'
         elif template not in templates:
             response = 'You do not have rights to use this template.\n'
-        return HttpResponse(response)
+        return response
+
+
+def create_certificate_request(pem, requester_email, template, domain, SAN, csr, query):
+    note = query.get('note', 'true')
+    enable_sending_certificate_to_mail = query.get('enable_sending_certificate_to_mail', 'true')
+    requester, _ = Requester.objects.get_or_create(
+        email=requester_email,
+    )
+    certificate = Certificate.objects.create(
+        pem=pem,
+    )
+    certificate_request = CertificateRequest.objects.create(
+        requester=requester,
+        template=template,
+        domain=domain,
+        SAN=SAN,
+        csr=csr,
+        certificate=certificate,
+        # TODO v2: save "env" to db ??
+        # env=env,
+        # TODO v2: save "certformat" to db ??
+        # certformat=certformat,
+    )
+    if note:
+        Note.objects.create(
+            certificate_request=certificate_request,
+            text=note,
+        )
+    if enable_sending_certificate_to_mail == 'true':
+        send_certificate_to_mail(requester_email, certificate_request)
+    return certificate_request
+
+
+def get_intermediary_response(csr, domain, template, SAN):
+    try:
+        data = {
+            "secret_key":  WINDOWS_SECRET_KEY,
+            'csr': csr,
+            'domain': domain,
+            'template': template,
+            'san': SAN,
+        }
+        response = requests.post(
+            f'{WINDOWS_URL}/submit',
+            verify=False,
+            json=data,
+            # files={
+            #     'data': (None, json.dumps(data), 'application/json'),
+            #     'csr': ('csr_file', csr_file, 'application/octet-stream')
+            # }
+        )
+        response = response.json()
+    except requests.exceptions.ConnectionError as e:
+        if settings.DEBUG and settings.MOCK_INTERMEDIARY_RESPONSE:
+            test_cert_filepath = BASE_DIR / 'fixtures' / 'test_certificate.pem'
+            with open(test_cert_filepath, 'r', encoding='utf-8') as cert_file:
+                response = {
+                    'certificate': cert_file.read()
+                }
+        else:
+            response = f'Cannot connect to intermediary.\n{e}.\n'
+    except Exception as e:
+        response = f'Error occured. {e}. \n'
+    return response
 
 
 @api_view(['POST'])
 def signcert(request):
-    query = request.data
-    files = request.FILES
     default_domain = r'CHVIRPKIPRD103.fpprod.corp\Leonteq Class 3 Issuing CA'
     default_template = 'LeonteqWebSrvManualEnroll'
+
+    query = request.data
+    files = request.FILES
 
     requester_email = query['requester']
     password = query.get('password')
@@ -125,103 +173,59 @@ def signcert(request):
     domain = query.get('domain', default_domain)
     note = query.get('note')
     SAN = query.get('SAN')
-    enable_sending_certificate_to_mail = query.get('enable_sending_certificate_to_mail', 'true')
     # env = query.get('env')
-    certformat = query.get('certformat')
+    # certformat = query.get('certformat', 'pem')
     csr_file = files.get('csr')
     csr = csr_file.read().decode()
     SAN = validate_SAN(SAN)
 
-    certformat_invalid_msg = validate_certformat(certformat)
-    if certformat_invalid_msg is not None:
-        return certformat_invalid_msg
+    # certformat_invalid_msg = validate_certformat(certformat)
+    # if certformat_invalid_msg is not None:
+    #     return HttpResponse(certformat_invalid_msg, status=400)
 
     throttling_result = throttle_request(requester_email)
     if throttling_result is not None:
-        return throttling_result
+        return HttpResponse(throttling_result, status=403)
 
     template_rigths_result = validate_template_rights(requester_email, password, template)
     if template_rigths_result is not None:
-        return template_rigths_result
+        return HttpResponse(template_rigths_result, status=400)
 
     templates = Template.objects.all().values_list('name', flat=True)
-    if template not in templates:
+    if template not in templates and not db_settings.allow_any_template:
         response = "Invalid template specified. List of templates you can get from here: /api/v1/listtemplates/\n"
-        return HttpResponse(response)
+        return HttpResponse(response, status=400)
 
     if not entry_is_in_ldap(requester_email):
         response = f'Email "{requester_email}" is not in ldap.\n'
-        return HttpResponse(response)
+        return HttpResponse(response, status=403)
 
-    url = f'{WINDOWS_URL}/submit'
-    data = {
-        "secret_key":  WINDOWS_SECRET_KEY,
-        'csr': csr,
-        'domain': domain,
-        'template': template,
-        'san': SAN,
-    }
+    intermediary_response = get_intermediary_response(csr, domain, template, SAN)
     try:
-        response = requests.post(
-            url,
-            verify=False,
-            json=data,
-            # files={
-            #     'data': (None, json.dumps(data), 'application/json'),
-            #     'csr': ('csr_file', csr_file, 'application/octet-stream')
-            # }
-        )
-        status_code = response.status_code
-        response = response.json()
-        if not status_code == 200:
-            msg = response['msg']
-            response = f'Certificate was not signed because of error: "{msg}". '
-            response += f'Status_code: {status_code}.\n'
-            return HttpResponse(response)
-        else:
-            pem = response['certificate']
-            requester, _ = Requester.objects.get_or_create(
-                email=requester_email,
-            )
-            certificate = Certificate.objects.create(
-                pem=pem,
-            )
-            certificate_request = CertificateRequest.objects.create(
-                requester=requester,
-                template=template,
-                domain=domain,
-                SAN=SAN,
-                csr=csr,
-                certificate=certificate,
-                # TODO v2: save "env" to db ??
-                # env=env,
-                # TODO v2: save "certformat" to db ??
-                # certformat=certformat,
-            )
-            if note:
-                Note.objects.create(
-                    certificate_request=certificate_request,
-                    text=note,
-                )
-            if enable_sending_certificate_to_mail == 'true':
-                send_certificate_to_mail(requester_email, certificate_request)
-            if response_format == 'text':
-                response = ''
-                response += f'{pem}\n\n\n'
-                response += f'Certificate request has been signed successfully. '
-                response += f'Its id is {certificate_request.id}.\n'
-                response += f'Certificate has been sent to your email in pem format.\n'
-                return HttpResponse(response)
-            elif response_format == 'file':
-                # TODO: return response as file
-                # return signcert_file_response(pem)
-                return HttpResponse('Not implemented.\n')
-    except requests.exceptions.ConnectionError as e:
-        response = f'Connection error:{e}.\n'
-        return HttpResponse(response)
+        pem = intermediary_response['certificate']
     except Exception as e:
-        response = f'Error occured. {e}. Windows service\'s response status_code: {status_code}.\n'
-        return HttpResponse(response)
+        return HttpResponse(intermediary_response, status=500)
+    try:
+        certificate_request = create_certificate_request(
+            pem, requester_email, template, 
+            domain, SAN, csr, query,
+        )
+    except OpenSSL.crypto.Error as e:
+        response = f'Error: {e}'
+        return HttpResponse(response, status=500)
+    if response_format == 'text':
+        response = ''
+        response += f'{pem}\n\n\n'
+        response += f'Certificate request has been signed successfully. '
+        response += f'Its id is {certificate_request.id}.\n'
+        response += f'Certificate has been sent to your email in pem format.\n'
+        return HttpResponse(response, status=200)
+    elif response_format == 'file':
+        # TODO v2: return response as file
+        # return signcert_file_response(pem)
+        return HttpResponse(f'Response format {response_format} is not implemented.\n', status=400)
+    else:
+        return HttpResponse(f'Response format {response_format} is not implemented.\n', status=400)
 
 
 def send_certificate_to_mail(requester_email, certificate_request):
@@ -246,8 +250,22 @@ def send_certificate_to_mail(requester_email, certificate_request):
     )
 
 
-def validate_cert_format(cert_format):
-    return cert_format
+# def validate_certformat(certformat):
+#     certformats = [k for k, _ in Converter().get_formats_mapper().items()]
+#     if certformat not in certformats:
+#         # formats = 'pem, der, p7b, p12'
+#         formats = ', '.join(certformats)
+#         response = f"\nInvalid format. Certformat must be one of: {formats}\n"
+#         return response
+
+
+# def signcert_file_response(pem):
+#     import os
+#     path = os.path.join(gettempdir(), 'file.cer')
+#     with open(path, 'w') as f:
+#         f.write(pem)
+#     return FileResponse(open(path, 'rb'))
+
 
 
 @api_view(['POST', 'GET'])
@@ -267,8 +285,7 @@ def pingca(request):
 
 @api_view(['POST', 'GET'])
 def run_scanner_view(request, id=None):
-    # TODO: block next request to run_scanner_view untill scan session has finished
-    # TODO: add api endpoint to commands
+    # TODO v2: block next request to run_scanner_view untill scan session has finished
     if request.method == 'POST':
         query = request.data
     elif request.method == 'GET':
@@ -287,7 +304,7 @@ def run_scanner_view(request, id=None):
             certificate_request = CertificateRequest.objects.get(id=id)
             Scanner().scan_db_certficate(certificate_request)
             response = 'Scan has been performed.\n'
-            # TODO: return info about certificate
+            # TODOv2: return info about certificate
         except Certificate.DoesNotExist:
             response = f'Certificate with id {id} doesnt exist.\n'
     elif id is not None and content_type == 'host':
@@ -295,7 +312,7 @@ def run_scanner_view(request, id=None):
             host = Host.objects.get(id=id)
             Scanner().scan_host(host)
             response = 'Scan has been performed.\n'
-            # TODO: return info about certificate
+            # TODOv2: return info about certificate
         except Certificate.DoesNotExist:
             response = f'Certificate with id {id} doesnt exist.\n'
     elif id is None and content_type == 'network':
@@ -369,6 +386,10 @@ def get_cert_format(pem, cert_format):
     else:
         cert = pem
     return cert
+
+
+def validate_cert_format(cert_format):
+    return cert_format
 
 
 @api_view(['POST', 'GET'])

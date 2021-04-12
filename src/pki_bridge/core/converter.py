@@ -2,6 +2,7 @@ from OpenSSL import SSL, crypto
 from cryptography import x509
 from datetime import datetime
 from cryptography.hazmat.backends import default_backend, openssl
+from pki_bridge.core.utils import set_openssl_version
 
 
 class FunctionNotImplemented(Exception):
@@ -113,7 +114,7 @@ class Converter(object):
     def get_func(self, from_, to):
         formats_mapper = self.get_formats_mapper()
         func = formats_mapper[from_][to]
-        # TODO: log openssl version here.(or somewhere, where it is really used.)
+        set_openssl_version()
         return func
 
     # convertors functions
@@ -272,8 +273,6 @@ class Converter(object):
                 san = ext.__str__()
         san = san.replace(',', ';')
         return san
-
-    # TODO: openssl terminal commands
 
     # https://www.ssl.com/guide/pem-der-crt-and-cer-x-509-encodings-and-conversions/
     # https://knowledge.digicert.com/solution/SO26449.html

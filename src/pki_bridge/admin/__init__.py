@@ -14,3 +14,6 @@ from .mixins import *
 # TODO: scan_network button
 # TODO: scan_hosts button
 # TODO: scan_certificates button
+# TODO: CertificateRequestAdmin.readonly_fields put link to certificate page
+# TODO: HostScanAdmin.list_filter link to certificate page
+# TODO: HostScanAdmin.list_filter autocomplete

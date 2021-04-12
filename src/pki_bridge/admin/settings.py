@@ -1,5 +1,5 @@
 from solo.admin import SingletonModelAdmin
-from pki_bridge.models import ProjectSettings, AllowedCN
+from pki_bridge.models import ProjectSettings, AllowedCN, Port
 from django.contrib import admin
 
 
@@ -9,10 +9,17 @@ class AllowedCNInline(admin.TabularInline):
     extra = 0
 
 
+class PortInline(admin.TabularInline):
+    model = Port
+    classes = ['collapse']
+    extra = 0
+
+
 @admin.register(ProjectSettings)
 class ProjectSettingsAdmin(SingletonModelAdmin):
     inlines = [
         AllowedCNInline,
+        PortInline,
     ]
 
 
@@ -32,6 +39,28 @@ class AllowedCNAdmin(admin.ModelAdmin):
     list_editable = [
         'name',
         'is_active',
+    ]
+    search_fields = [
+        'name',
+    ]
+
+
+@admin.register(Port)
+class PortAdmin(admin.ModelAdmin):
+    exclude = [
+        'project_settings',
+    ]
+    list_display = [
+        'id',
+        'name',
+        'is_active',
+    ]
+    list_display_links = [
+        'id',
+    ]
+    list_editable = [
+        'name',
+        'is_active'
     ]
     search_fields = [
         'name',
