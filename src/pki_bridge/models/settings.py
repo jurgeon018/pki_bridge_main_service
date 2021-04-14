@@ -55,7 +55,7 @@ class PkiFieldsMixin(models.Model):
         self.scanner_secret_key = settings.SCANNER_SECRET_KEY
         self.enable_template_rights_validation = settings.ENABLE_TEMPLATE_RIGHTS_VALIDATION
 
-        with open(BASE_DIR / 'fixtures' / 'key.key') as f:
+        with open(BASE_DIR / 'fixtures' / 'cer.cer') as f:
             self.ca = f.read()
         with open(BASE_DIR / 'fixtures' / 'cer.cer') as f:
             self.intermediary = f.read()

@@ -1,8 +1,8 @@
-from os import name
 from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.auth.models import Group, Permission
 from django.contrib.sites.models import Site
+from django.contrib.auth.hashers import make_password
 
 from decouple import config
 import json
@@ -32,7 +32,7 @@ def gen_readonly_group(
     Group=Group,
     ContentType=ContentType,
     Permission=Permission,
-        ):
+):
     new_group, _ = Group.objects.get_or_create(name='readonly')
     for ct in ContentType.objects.all():
         permissions = Permission.objects.filter(content_type=ct)
@@ -40,11 +40,10 @@ def gen_readonly_group(
             if permission.codename.startswith('view'):
                 new_group.permissions.add(permission)
 
-from django.contrib.auth.hashers import make_password
 
 def gen_user(
     ProjectUser=ProjectUser,
-        ):
+):
     users_json = [
         {
             'username': 'admin',
@@ -70,7 +69,7 @@ def gen_user(
 
 def update_templates(
     Template=Template,
-        ):
+):
     WINDOWS_SCHEMA = config('WINDOWS_SCHEMA')
     WINDOWS_HOST = config('WINDOWS_HOST')
     WINDOWS_PORT = config('WINDOWS_PORT')
@@ -100,7 +99,7 @@ def update_templates(
 
 def gen_commands(
     Command=Command,
-        ):
+):
     path = BASE_DIR / 'fixtures' / 'commands.json'
     with open(path) as f:
         commands = json.load(f)
@@ -154,8 +153,7 @@ def gen_networks_dict():
         network = f'{ip}/{mask}'
         try:
             net4 = ipaddress.ip_network(network)
-        except ValueError as e:
-            # print(e)
+        except ValueError:
             continue
         hosts = []
         for host in net4.hosts():
@@ -184,7 +182,7 @@ def gen_networks_json():
 
 def gen_networks(
     Network=Network,
-        ):
+):
     Network.objects.all().delete()
     path = BASE_DIR / 'fixtures' / 'networks.json'
     with open(path) as f:
@@ -209,10 +207,10 @@ def gen_networks(
 def gen_hosts(
     Host=Host,
     Network=Network,
-        ):
+):
     Host.objects.all().delete()
     hosts = []
-    
+
     scan_test = 1
     # scan_test = 0
     # scan_real = 1
@@ -255,32 +253,31 @@ def gen_hosts(
 
 def gen_allowed_cn(
     AllowedCN=AllowedCN,
-        ):
+):
     AllowedCN.objects.all().delete()
     cns = settings.ALLOWED_CNS
     for cn in cns:
-        c = AllowedCN.objects.create(
+        AllowedCN.objects.create(
             name=cn,
         )
+    print("AllowedCN.objects.all(): ", AllowedCN.objects.all())
 
 
 def gen_ports(
     Port=Port,
-        ):
+):
     Port.objects.all().delete()
     ports = settings.PORTS
     for port in ports:
-        p = Port.objects.create(
+        Port.objects.create(
             name=port
         )
-
-
 
 
 def set_domain_name(
     domain=None,
     Site=Site,
-        ):
+):
     site = Site.objects.get_current()
     site.domain = domain
     site.name = domain

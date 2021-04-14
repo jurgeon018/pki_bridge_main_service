@@ -15,11 +15,11 @@ api_urls = [
     path("getcacertchain/", views.getcacertchain, name='getcacertchain'),
     path("listcommands/", views.listcommands, name='listcommands'),
     path("get_help/<command>/", views.get_help, name='get_help'),
-    path("createkeyandcsr/", views.createkeyandcsr, name='createkeyandcsr'),
-    path("createkeyandsign/", views.createkeyandsign, name='createkeyandsign'),
-    path("revokecert/<id>/", views.revokecert, name='revokecert'),
     path("addnote/<id>/", views.addnote, name='addnote'),
     path("trackurl/", views.trackurl, name='trackurl'),
+    # path("createkeyandcsr/", views.createkeyandcsr, name='createkeyandcsr'),
+    # path("createkeyandsign/", views.createkeyandsign, name='createkeyandsign'),
+    # path("revokecert/<id>/", views.revokecert, name='revokecert'),
 ]
 
 urlpatterns = [

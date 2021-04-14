@@ -216,3 +216,10 @@ findcsv:
 
 
 # pytest
+run_tests:
+	pytest src/pki_bridge/tests -v -s --disable-pytest-warnings
+coverage_run:
+	coverage run --source src -m pytest src/pki_bridge/tests
+
+coverage_report:
+	coverage report -m

@@ -1,31 +1,27 @@
 from django.http import HttpResponse
 from django.utils.deprecation import MiddlewareMixin
 from django.urls import resolve
-
-import json 
-
+# import json
 from pki_bridge.models import (
-    ProjectUser,
     Command,
+    # ProjectUser,
     # WebRequest,
 )
 
 
-
 class DisabledViewMiddleware(MiddlewareMixin):
     def process_request(self, request):
-        if request.path.startswith('/api/'):
+        if request.path.startswith('/api/v1/'):
             name = resolve(request.path_info).url_name
             try:
                 command = Command.objects.get(name=name)
             except Command.DoesNotExist:
-                response = f'This command does not exist.\n'
+                response = 'This command does not exist.\n'
                 return HttpResponse(response)
             else:
                 if not command.is_active:
                     response = 'Sorry, but this api endpoint was disabled. Try again later.\n'
-                    return HttpResponse(response) 
-
+                    return HttpResponse(response)
 
 
 # def dumps(value):
@@ -55,7 +51,12 @@ class DisabledViewMiddleware(MiddlewareMixin):
 #             if new_location and content_length == '0':
 #                 new_parsed = urlparse(new_location)
 
-#                 old = (('http','https')[request.is_secure()], request.get_host(), '{0}/'.format(request.path), request.META['QUERY_STRING'])
+                # old = (
+                #     ('http', 'https')[request.is_secure()],
+                #     request.get_host(),
+                #     '{0}/'.format(request.path),
+                #     request.META['QUERY_STRING']
+                # )
 #                 new = (new_parsed.scheme, new_parsed.netloc, new_parsed.path, new_parsed.query)
 
 #                 if old == new:
@@ -71,7 +72,7 @@ class DisabledViewMiddleware(MiddlewareMixin):
 
 #     def save(self, request, response):
 #         if hasattr(request, 'user'):
-#             user = request.user if type(request.user) == ProjectUser else None
+#            user = request.user if type(request.user) == ProjectUser else None
 #         else:
 #             user = None
 

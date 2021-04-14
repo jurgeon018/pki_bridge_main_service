@@ -67,7 +67,6 @@ class CertificateRequest(TimeMixin, AuthorMixin):
 
 
 class Certificate(TimeMixin, AuthorMixin):
-    # TODO: show as text in admin 
     pem = models.TextField(null=False, blank=False)
 
     cert_info = models.TextField(null=True, blank=True)
@@ -138,17 +137,14 @@ class Certificate(TimeMixin, AuthorMixin):
         # print(pyopenssl_json_cert)
         return self_signed
 
-    # TODO show valid_days_to_expire fields in admin
     @property
     def valid_days_to_expire(self):
         return (self.valid_till - timezone.now()).days
 
-    # TODO show validity_days fields in admin
     @property
     def validity_days(self):
         return (self.valid_till - self.valid_from).days
 
-    # TODO show is_expired fields in admin
     @property
     def is_expired(self):
         try:
@@ -161,7 +157,6 @@ class Certificate(TimeMixin, AuthorMixin):
             expired = self.days_left <= 0
         return expired
 
-    # TODO: show text_cert in admin
     @property
     def text_cert(self):
         pem = self.pem
@@ -169,7 +164,6 @@ class Certificate(TimeMixin, AuthorMixin):
         cert = converter.cert
         return cert
 
-    # TODO: show json_cert in admin
     @property
     def json_cert(self):
         pem = self.pem

@@ -134,12 +134,12 @@ class Converter(object):
                 openssl.backend, pyopenssl_cert._req)
         else:
             raise TypeError('Unknown input type: {0}'.format(pyopenssl_cert.__class__))
-    
+
     def pem_to_cryptography_cert(self, pem):
         cryptography_cert = x509.load_pem_x509_certificate(pem.encode('utf-8'), default_backend())
         return cryptography_cert
 
-    def pem_to_pyopenssl_cert(self, pem):    
+    def pem_to_pyopenssl_cert(self, pem):
         pyopenssl_cert = crypto.load_certificate(
             crypto.FILETYPE_PEM,
             pem,

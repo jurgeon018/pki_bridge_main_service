@@ -9,4 +9,3 @@ class Command(BaseCommand):
         '''
         gen_allowed_cn()
         print('Allowed CNs has been generated successfully.')
-

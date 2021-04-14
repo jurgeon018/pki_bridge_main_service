@@ -54,7 +54,6 @@ class DbCertificatesScanner:
 
         threads = []
         certificates = CertificateRequest.objects.all()
-        # TODO: filter certificates which hasnt been scanned yet
         # certificates = certificates.filter()
         # certificates = certificates[10:40]
 
@@ -94,7 +93,7 @@ class DbCertificatesScanner:
     def scan_db_certficate(self, certificate_request):
         certificate = certificate_request.certificate
         if not certificate:
-            return 
+            return
         # print()
         # print("certificate_request: ", certificate_request)
         # print("certificate: ", certificate)
@@ -133,6 +132,7 @@ class DbCertificatesScanner:
         link = get_obj_admin_link(certificate_request_scan)
         if is_expired:
             # TODO: count days or replace with date
+            # TODO: add real emails
             days = 'a few'
             subject = f"Certificate of {certificate_request.id} has expired {days} days ago. More info: {link}"
             message = f"Certificate of {certificate_request.id} has expired {days} days ago. More info: {link}"
@@ -145,7 +145,6 @@ class DbCertificatesScanner:
                     certificate_request.requester.email
                 ]
             if db_settings.enable_mail_notifications:
-            # if settings.ENABLE_MAIL_NOTIFICATIONS:
                 send_mail(
                     subject=subject,
                     message=message,
@@ -155,7 +154,8 @@ class DbCertificatesScanner:
                 )
         if valid_days_to_expire < days_to_expire:
             subject = f"Expiration of {certificate_request.id} certificate."
-            message = f"Certificate of certificate_request #{certificate_request.id} will expire in {valid_days_to_expire} days. More info: {link}"
+            message = f"Certificate of certificate_request #{certificate_request.id} "
+            message += f"will expire in {valid_days_to_expire} days. More info: {link}"
             recipient_list = []
             recipient_list += [
                 'andrey.mendela@leonteq.com',
@@ -165,7 +165,6 @@ class DbCertificatesScanner:
                     certificate_request.requester.email
                 ]
             if db_settings.enable_mail_notifications:
-                # if settings.ENABLE_MAIL_NOTIFICATIONS:
                 send_mail(
                     subject=subject,
                     message=message,
@@ -185,7 +184,6 @@ class DbCertificatesScanner:
                     certificate_request.requester.email
                 ]
             if db_settings.enable_mail_notifications:
-            # if settings.ENABLE_MAIL_NOTIFICATIONS:
                 send_mail(
                     subject=subject,
                     message=message,
@@ -205,7 +203,6 @@ class DbCertificatesScanner:
                     certificate_request.requester.email
                 ]
             if db_settings.enable_mail_notifications:
-            # if settings.ENABLE_MAIL_NOTIFICATIONS:
                 send_mail(
                     subject=subject,
                     message=message,
@@ -327,13 +324,14 @@ class NetworkScanner:
         # print("is_self_signed: ", is_self_signed)
         # print("is_from_different_ca: ", is_from_different_ca)
         # return
+        # TODO: add real emails
         # TODOv2: analytics: save to db which mail was sent
         link = get_obj_admin_link(scan)
         if is_expired:
             # TODO: count days or replace with date
             days = 'a few'
             subject = f"Certificate of {host} has expired {days} days ago. More info: {link}"
-            message = f''
+            message = ''
             recipient_list = []
             recipient_list += [
                 'andrey.mendela@leonteq.com',
@@ -343,7 +341,6 @@ class NetworkScanner:
                     host.contacts,
                 ]
             if db_settings.enable_mail_notifications:
-            # if settings.ENABLE_MAIL_NOTIFICATIONS:
                 send_mail(
                     subject=subject,
                     message=message,
@@ -363,7 +360,6 @@ class NetworkScanner:
                     host.contacts,
                 ]
             if db_settings.enable_mail_notifications:
-            # if settings.ENABLE_MAIL_NOTIFICATIONS:
                 send_mail(
                     subject=subject,
                     message=message,
@@ -383,7 +379,6 @@ class NetworkScanner:
                     host.contacts,
                 ]
             if db_settings.enable_mail_notifications:
-            # if settings.ENABLE_MAIL_NOTIFICATIONS:
                 send_mail(
                     subject=subject,
                     message=message,
@@ -403,7 +398,6 @@ class NetworkScanner:
                     host.contacts,
                 ]
             if db_settings.enable_mail_notifications:
-            # if settings.ENABLE_MAIL_NOTIFICATIONS:
                 send_mail(
                     subject=subject,
                     message=message,

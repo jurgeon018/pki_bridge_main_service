@@ -1,16 +1,17 @@
-
-from django.http import JsonResponse, HttpResponse, FileResponse
+from django.http import (
+    HttpResponse,
+    # FileResponse,
+)
 from django.conf import settings
 from django.utils import timezone
 from django.core.mail import send_mail
-from django.conf import settings
 from rest_framework.decorators import api_view
 import OpenSSL
 from decouple import config
 
 import requests
 from datetime import timedelta
-from tempfile import gettempdir
+# from tempfile import gettempdir
 
 from pki_bridge.tasks import (
     celery_scan_network,
@@ -21,9 +22,6 @@ from pki_bridge.core.scanner import Scanner
 from pki_bridge.core.utils import get_obj_admin_link
 from pki_bridge.core.converter import Converter
 from pki_bridge.conf import db_settings
-from pki_bridge.core.views import (
-    build_templates_string,
-)
 from pki_bridge.core.ldap import (
     entry_is_in_ldap,
 )
@@ -77,7 +75,7 @@ def throttle_request(requester):
 
 def validate_SAN(SAN):
     if SAN:
-        SAN = SAN.replace(' ','')
+        SAN = SAN.replace(' ', '')
     return SAN
 
 
@@ -128,7 +126,7 @@ def create_certificate_request(pem, requester_email, template, domain, SAN, csr,
 def get_intermediary_response(csr, domain, template, SAN):
     try:
         data = {
-            "secret_key":  WINDOWS_SECRET_KEY,
+            "secret_key": WINDOWS_SECRET_KEY,
             'csr': csr,
             'domain': domain,
             'template': template,
@@ -158,6 +156,28 @@ def get_intermediary_response(csr, domain, template, SAN):
     return response
 
 
+def send_certificate_to_mail(requester_email, certificate_request):
+    subject = f'Certificate request #{certificate_request.id}'
+    message = ''
+    message += f'Certificate request id: {certificate_request.id}\n'
+    message += f'Certificate id: {certificate_request.certificate.id}\n'
+    message += f'Certificate request link: {get_obj_admin_link(certificate_request)}\n'
+    message += f'Certificate link: {get_obj_admin_link(certificate_request.certificate)}\n'
+    message += f'Certificate pem: \n{certificate_request.certificate.pem}\n'
+    message += f'CSR: \n{certificate_request.csr}\n'
+    from_email = settings.DEFAULT_FROM_EMAIL
+    recipient_list = []
+    recipient_list.append(requester_email)
+    # recipient_list.append('andrey.mendela@leonteq.com')
+    send_mail(
+        subject=subject,
+        message=message,
+        from_email=from_email,
+        recipient_list=recipient_list,
+        fail_silently=False
+    )
+
+
 @api_view(['POST'])
 def signcert(request):
     default_domain = r'CHVIRPKIPRD103.fpprod.corp\Leonteq Class 3 Issuing CA'
@@ -171,7 +191,6 @@ def signcert(request):
     response_format = query.get('response_format', 'text')
     template = query.get('template', default_template)
     domain = query.get('domain', default_domain)
-    note = query.get('note')
     SAN = query.get('SAN')
     # env = query.get('env')
     # certformat = query.get('certformat', 'pem')
@@ -203,11 +222,11 @@ def signcert(request):
     intermediary_response = get_intermediary_response(csr, domain, template, SAN)
     try:
         pem = intermediary_response['certificate']
-    except Exception as e:
+    except Exception:
         return HttpResponse(intermediary_response, status=500)
     try:
         certificate_request = create_certificate_request(
-            pem, requester_email, template, 
+            pem, requester_email, template,
             domain, SAN, csr, query,
         )
     except OpenSSL.crypto.Error as e:
@@ -216,9 +235,9 @@ def signcert(request):
     if response_format == 'text':
         response = ''
         response += f'{pem}\n\n\n'
-        response += f'Certificate request has been signed successfully. '
+        response += 'Certificate request has been signed successfully. '
         response += f'Its id is {certificate_request.id}.\n'
-        response += f'Certificate has been sent to your email in pem format.\n'
+        response += 'Certificate has been sent to your email in pem format.\n'
         return HttpResponse(response, status=200)
     elif response_format == 'file':
         # TODO v2: return response as file
@@ -226,28 +245,6 @@ def signcert(request):
         return HttpResponse(f'Response format {response_format} is not implemented.\n', status=400)
     else:
         return HttpResponse(f'Response format {response_format} is not implemented.\n', status=400)
-
-
-def send_certificate_to_mail(requester_email, certificate_request):
-    subject = f'Certificate request #{certificate_request.id}'
-    message = f''
-    message += f'Certificate request id: {certificate_request.id}\n'
-    message += f'Certificate id: {certificate_request.certificate.id}\n'
-    message += f'Certificate request link: {get_obj_admin_link(certificate_request)}\n'
-    message += f'Certificate link: {get_obj_admin_link(certificate_request.certificate)}\n'
-    message += f'Certificate pem: \n{certificate_request.certificate.pem}\n'
-    message += f'CSR: \n{certificate_request.csr}\n'
-    from_email = settings.DEFAULT_FROM_EMAIL
-    recipient_list = []
-    recipient_list.append(requester_email)
-    # recipient_list.append('andrey.mendela@leonteq.com')
-    send_mail(
-        subject=subject,
-        message=message,
-        from_email=from_email,
-        recipient_list=recipient_list,
-        fail_silently=False
-    )
 
 
 # def validate_certformat(certformat):
@@ -264,22 +261,27 @@ def send_certificate_to_mail(requester_email, certificate_request):
 #     path = os.path.join(gettempdir(), 'file.cer')
 #     with open(path, 'w') as f:
 #         f.write(pem)
-#     return FileResponse(open(path, 'rb'))
-
+#     return  (open
+# )(path, 'rb'))
 
 
 @api_view(['POST', 'GET'])
 def listtemplates(request):
     if db_settings.update_templates_from_ca:
         update_templates()
-    response = build_templates_string()
-    return HttpResponse(response)
+    tempates = Template.objects.all()
+    templates_string = ''
+    for template in tempates:
+        templates_string += f'{template.name}: {template.description}\n'
+    return HttpResponse(templates_string)
 
 
 @api_view(['POST', 'GET'])
 def pingca(request):
-    url = f'{WINDOWS_URL}/pingca'
-    response = requests.get(url)
+    # TODO future: ping vault
+    # url = f'{WINDOWS_URL}/pingca'
+    # response = requests.get(url)
+    response = 'Not implemented'
     return HttpResponse(response)
 
 
@@ -293,7 +295,7 @@ def run_scanner_view(request, id=None):
     SCANNER_SECRET_KEY = db_settings.scanner_secret_key
     secret_key = query.get('secret_key')
     if SCANNER_SECRET_KEY != secret_key:
-        response = f'secret_key is invalid.\n'
+        response = 'secret_key is invalid.\n'
         return HttpResponse(response)
     content_type = query.get('content_type')
     if id is None and content_type in ['certificate_request', 'host']:
@@ -371,6 +373,7 @@ def listcommands(request):
 
 @api_view(['POST', 'GET'])
 def get_help(request, command):
+    # TODO: descriptibe help for each command
     command = Command.objects.get(name=command)
     response = f'{command.description}\n'
     return HttpResponse(response)
@@ -441,19 +444,19 @@ def getcacertchain(request):
     return HttpResponse(response)
 
 
-@api_view(['POST', 'GET'])
-def createkeyandcsr(request):
-    return JsonResponse({})
+# @api_view(['POST', 'GET'])
+# def createkeyandcsr(request):
+#     return JsonResponse({})
 
 
-@api_view(['POST', 'GET'])
-def createkeyandsign(request):
-    return JsonResponse({})
+# @api_view(['POST', 'GET'])
+# def createkeyandsign(request):
+#     return JsonResponse({})
 
 
-@api_view(['POST', 'GET'])
-def revokecert(request, id):
-    return JsonResponse({})
+# @api_view(['POST', 'GET'])
+# def revokecert(request, id):
+#     return JsonResponse({})
 
 
 def test_mail(request):

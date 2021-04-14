@@ -13,5 +13,6 @@ requests==2.25.1
 django-admin-autocomplete-filter==0.6.1
 django-admin-rangefilter==0.6.4
 pytest==6.2.3
+django-test-migrations==1.1.0
 pytest-django==4.1.0
 python-memcached==1.59

@@ -15,6 +15,7 @@ from pki_bridge.management import (
 )
 from pki_bridge.models.settings import ProjectSettings
 
+
 def gen_contenttypes(apps):
     app_config = apps.get_app_config('pki_bridge')
     app_config.models_module = app_config.models_module or True
@@ -93,6 +94,7 @@ def migrate_domain_name(apps, schema_editor):
     Site = apps.get_model('sites', 'Site')
     Site.objects.all().delete()
     Site.objects.create(domain=domain, name='webapi domain')
+
 
 class Migration(migrations.Migration):
 
