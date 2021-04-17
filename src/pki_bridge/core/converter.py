@@ -196,7 +196,6 @@ class Converter(object):
         # https://stackoverflow.com/questions/56763385/determine-if-ssl-certificate-is-self-signed-using-python
         json_cert['self_signed'] = _issuer_CN == _subject_CN
         json_cert['_subject_CN'] = _subject_CN
-        json_cert['_subject_CN'] = _subject_CN
         json_cert['_issuer_CN'] = _issuer_CN
         json_cert['issued_to'] = cert_subject.CN
         json_cert['issued_o'] = cert_subject.O

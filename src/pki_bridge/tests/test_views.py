@@ -21,6 +21,17 @@ from pki_bridge.views import (
 # from pki_bridge.conf import db_settings
 
 
+test_cert_filepath = settings.BASE_DIR / 'fixtures' / 'test_certificate.pem'
+'''
+Я пишу тесты сейчас, для того чтобы упростить себе жизнь потом.
+Тесты это моя уверенность в том что все будет работать так как должно работать.
+Я избавляю себя от геморойного поиска багов, переживаний о том работает ли все как положено.
+Я пишу только те тесты, которые действительно нужны, полезны, и проверяют работоспособность кода.
+Я не пишу тесты ради тестов.
+Я не решаю задачи ради задач. Я решаю задачи ради того чтобы решать проблемы людей.
+'''
+
+
 class TestMiddlewares:
 
     # TODO: test_disabled_view_middleware
@@ -31,17 +42,64 @@ class TestMiddlewares:
 @pytest.mark.django_db
 class TestSigncert:
 
-    # TODO: test_throttle_request
-    def test_throttle_request(self):
-        pass
+    def test_throttle_request(self, client):
+        project_settings = ProjectSettings.get_solo()
+        requester_email = "andrey.mendela@leonteq.com"
+        requester = Requester.objects.create(
+            email=requester_email,
+        )
+        for i in range(1, 10 + 1):
+            CertificateRequest.objects.create(requester=requester)
 
-    # TODO: test_validate_SAN
+        project_settings.allowed_requests = 0
+        project_settings.reset_period = 0
+        project_settings.save()
+        result = throttle_request(requester_email)
+        assert result is None
+
+        project_settings.allowed_requests = 20
+        project_settings.reset_period = 1
+        project_settings.save()
+        result = throttle_request(requester_email)
+        assert result is None
+
+        project_settings.allowed_requests = 5
+        project_settings.reset_period = 1
+        project_settings.save()
+        result = throttle_request(requester_email)
+        assert result is not None
+
+        data = {
+            "requester": requester_email,
+        }
+        response = client.post('/api/v1/signcert/', data=data)
+        assert response.status_code == 403
+
     def test_validate_SAN(self):
-        pass
+        strings = [
+            ' ',
+            'fdsasdf  sdfda',
+            'fdsasdf sd1 sdf',
+            'fdsasdf sd1  sdf',
+            'fdsasdf sd1   sdf',
+            'fdsasdf sdf     sdfda',
+            '  fdsasdf sdf     sdfda',
+            '  fdsasdf sdf     sdfda  ',
+        ]
+        for string in strings:
+            result = validate_SAN(string)
+            assert ' ' not in result
 
     # TODO: test_validate_template_rights
-    def test_validate_template_rights(self):
-        pass
+    # def test_validate_template_rights(self):
+    #     requester_email = ''
+    #     password = ''
+    #     template = ''
+    #     result = validate_template_rights(requester_email, password, template)
+    #     assert result is None
+    #     assert result is None
+    #     assert result == 'Password is incorrect\n'
+    #     assert result == 'You do not have rights to use this template.\n'
 
     # TODO: test_create_certificate_request
     def test_create_certificate_request(self):
@@ -60,7 +118,6 @@ class TestSigncert:
         assert Certificate.objects.all().count() == 0
         assert Requester.objects.all().count() == 0
         assert CertificateRequest.objects.all().count() == 0
-        test_cert_filepath = settings.BASE_DIR / 'fixtures' / 'test_certificate.pem'
         with open(test_cert_filepath, 'r', encoding='utf-8') as cert_file:
             mock_intermediary_response.return_value = {
                 'certificate': cert_file.read()
@@ -76,11 +133,11 @@ class TestSigncert:
                 'csr': f,
             }
             response = client.post('/api/v1/signcert/', data=data)
-        # content = response.content
         assert response.status_code == 200
         assert Certificate.objects.all().count() == 1
         assert CertificateRequest.objects.all().count() == 1
         assert Requester.objects.all().count() == 1
+        
 
 
 @pytest.mark.django_db

@@ -260,7 +260,6 @@ def gen_allowed_cn(
         AllowedCN.objects.create(
             name=cn,
         )
-    print("AllowedCN.objects.all(): ", AllowedCN.objects.all())
 
 
 def gen_ports(

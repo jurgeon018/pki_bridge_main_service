@@ -19,4 +19,5 @@ class DbSettings:
             print(1)
             raise Exception(msg)
 
+
 db_settings = DbSettings()

@@ -39,7 +39,7 @@ class PkiFieldsMixin(models.Model):
         return Port.objects.filter(is_active=True).values_list('name', flat=True)
 
     def update_fields(self):
-        
+
         self.hosts_per_page = settings.HOSTS_PER_PAGE
         self.certificates_per_page = settings.CERTIFICATES_PER_PAGE
         self.enable_mail_notifications = settings.ENABLE_MAIL_NOTIFICATIONS
@@ -54,13 +54,10 @@ class PkiFieldsMixin(models.Model):
         self.days_to_expire = settings.DAYS_TO_EXPIRE
         self.scanner_secret_key = settings.SCANNER_SECRET_KEY
         self.enable_template_rights_validation = settings.ENABLE_TEMPLATE_RIGHTS_VALIDATION
-
-        with open(BASE_DIR / 'fixtures' / 'cer.cer') as f:
-            self.ca = f.read()
-        with open(BASE_DIR / 'fixtures' / 'cer.cer') as f:
-            self.intermediary = f.read()
-        with open(BASE_DIR / 'fixtures' / 'chain.cer') as f:
-            self.chain = f.read()
+        self.ca = settings.CA
+        self.intermediary = settings.INTERMEDIARY
+        self.chain = settings.CHAIN
+        self.clean()
 
     class Meta:
         abstract = True
@@ -188,8 +185,13 @@ class Port(models.Model):
     name = models.PositiveIntegerField()
     is_active = models.BooleanField(default=True)
 
+    def save(self, *args, **kwargs):
+        project_settings = ProjectSettings.get_solo()
+        self.project_settings = project_settings
+        super().save(*args, **kwargs)
+
     def __str__(self):
-        return f'{self.port}'
+        return f'{self.name}'
 
     class Meta:
         verbose_name = "Port"

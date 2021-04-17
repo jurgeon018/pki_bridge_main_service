@@ -88,7 +88,7 @@ class Certificate(TimeMixin, AuthorMixin):
     valid_from = models.DateTimeField(blank=True, null=True)
     valid_till = models.DateTimeField(blank=True, null=True)
 
-    def save(self, *args, **kwargs):
+    def populate(self):
         pem = self.pem
         # cryptography_json_cert = Converter(pem, 'pem', 'json').cert
         pyopenssl_cert = Converter(pem, 'pem', 'pyopenssl_cert').cert
@@ -116,7 +116,16 @@ class Certificate(TimeMixin, AuthorMixin):
         valid_till = make_timezone_aware(valid_till)
         self.valid_from = valid_from
         self.valid_till = valid_till
+
+    def save(self, *args, **kwargs):
+        if not self.id:
+            self.populate()
+        old_pem = self.pem
         super().save(*args, **kwargs)
+        new_pem = self.pem
+        if old_pem != new_pem:
+            self.populate()
+            super().save(*args, **kwargs)
 
     @property
     def is_from_different_ca(self):
@@ -134,7 +143,6 @@ class Certificate(TimeMixin, AuthorMixin):
         pyopenssl_cert = Converter(pem, 'pem', 'pyopenssl_cert').cert
         pyopenssl_json_cert = Converter(pyopenssl_cert, 'pyopenssl_cert', 'json').cert
         self_signed = pyopenssl_json_cert['self_signed']
-        # print(pyopenssl_json_cert)
         return self_signed
 
     @property
@@ -152,8 +160,7 @@ class Certificate(TimeMixin, AuthorMixin):
             pyopenssl_cert = Converter(pem, 'pem', 'pyopenssl_cert').cert
             pyopenssl_json_cert = Converter(pyopenssl_cert, 'pyopenssl_cert', 'json').cert
             expired = pyopenssl_json_cert['cert_exp']
-        except Exception as e:
-            print(e)
+        except Exception:
             expired = self.days_left <= 0
         return expired
 

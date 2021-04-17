@@ -109,7 +109,12 @@ AUTH_USER_MODEL = 'pki_bridge.ProjectUser'
 SITE_ID = 1
 
 # project settings
-
+with open(BASE_DIR / 'fixtures' / 'cer.cer') as f:
+    CA = f.read()
+with open(BASE_DIR / 'fixtures' / 'cer.cer') as f:
+    INTERMEDIARY = f.read()
+with open(BASE_DIR / 'fixtures' / 'chain.cer') as f:
+    CHAIN = f.read()
 PORTS = config('PORTS', cast=Csv())
 LDAP_USERNAME = config('LDAP_USERNAME', cast=str)
 LDAP_PASSWORD = config('LDAP_PASSWORD', cast=str)

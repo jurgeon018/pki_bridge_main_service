@@ -61,8 +61,8 @@ def throttle_request(requester):
             requester__email=requester,
             created__gte=dt,
         ).order_by('created')
-        last_request = certificate_requests.last()
         if certificate_requests.count() > db_settings.allowed_requests:
+            last_request = certificate_requests.last()
             again = last_request.created + timedelta(hours=reset_period) - timezone.now()
             again = divmod(again.total_seconds(), 60)
             minutes = round(again[0])
@@ -86,7 +86,7 @@ def validate_template_rights(requester_email, password, template):
     templates = user.templates.all().values_list('name', flat=True)
     if user is not None:
         if not user.check_password(password):
-            response = 'Password is incorrect'
+            response = 'Password is incorrect\n'
         elif template not in templates:
             response = 'You do not have rights to use this template.\n'
         return response
@@ -194,8 +194,6 @@ def signcert(request):
     SAN = query.get('SAN')
     # env = query.get('env')
     # certformat = query.get('certformat', 'pem')
-    csr_file = files.get('csr')
-    csr = csr_file.read().decode()
     SAN = validate_SAN(SAN)
 
     # certformat_invalid_msg = validate_certformat(certformat)
@@ -219,6 +217,8 @@ def signcert(request):
         response = f'Email "{requester_email}" is not in ldap.\n'
         return HttpResponse(response, status=403)
 
+    csr_file = files.get('csr')
+    csr = csr_file.read().decode()
     intermediary_response = get_intermediary_response(csr, domain, template, SAN)
     try:
         pem = intermediary_response['certificate']
