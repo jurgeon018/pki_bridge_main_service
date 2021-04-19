@@ -1,7 +1,8 @@
-from django.db import models
 from django.contrib.auth.models import AbstractUser
-
-from pki_bridge.models.mixins import TimeMixin, ActiveMixin, AuthorMixin
+from django.db import models
+from pki_bridge.models.mixins import ActiveMixin
+from pki_bridge.models.mixins import AuthorMixin
+from pki_bridge.models.mixins import TimeMixin
 
 
 class Command(TimeMixin, ActiveMixin, AuthorMixin):
@@ -10,7 +11,7 @@ class Command(TimeMixin, ActiveMixin, AuthorMixin):
     description = models.TextField()
 
     def __str__(self):
-        return f'{self.name}'
+        return f"{self.name}"
 
     class Meta:
         verbose_name = "Command"
@@ -18,10 +19,11 @@ class Command(TimeMixin, ActiveMixin, AuthorMixin):
 
 
 class ProjectUser(AbstractUser):
-    templates = models.ManyToManyField(to='pki_bridge.Template', blank=True)
+    email = models.EmailField(blank=True, null=True, unique=True)
+    templates = models.ManyToManyField(to="pki_bridge.Template", blank=True)
 
     def __str__(self):
-        return f'{self.username}'
+        return f"{self.username}"
 
     class Meta:
         verbose_name = "User"

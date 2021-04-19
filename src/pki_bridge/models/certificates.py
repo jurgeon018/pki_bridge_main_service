@@ -1,10 +1,13 @@
+from datetime import datetime
+
 from django.db import models
-from pki_bridge.models.mixins import TimeMixin, ActiveMixin, AuthorMixin
-from pki_bridge.models.settings import AllowedCN
+from django.utils import timezone
 from pki_bridge.core.converter import Converter
 from pki_bridge.core.utils import make_timezone_aware
-from datetime import datetime
-from django.utils import timezone
+from pki_bridge.models.mixins import ActiveMixin
+from pki_bridge.models.mixins import AuthorMixin
+from pki_bridge.models.mixins import TimeMixin
+from pki_bridge.models.settings import AllowedCN
 
 
 class Template(TimeMixin, ActiveMixin, AuthorMixin):
@@ -17,51 +20,51 @@ class Template(TimeMixin, ActiveMixin, AuthorMixin):
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return f'{self.name}'
+        return f"{self.name}"
 
     class Meta:
-        verbose_name = 'Template'
-        verbose_name_plural = 'Templates'
+        verbose_name = "Template"
+        verbose_name_plural = "Templates"
 
 
 class Requester(TimeMixin, AuthorMixin):
     email = models.CharField(max_length=255)
 
     def __str__(self):
-        return f'{self.email}'
+        return f"{self.email}"
 
     class Meta:
-        verbose_name = 'Requester'
-        verbose_name_plural = 'Requesters'
+        verbose_name = "Requester"
+        verbose_name_plural = "Requesters"
 
 
 class Note(TimeMixin, AuthorMixin):
-    certificate_request = models.ForeignKey(
-        to='pki_bridge.CertificateRequest', on_delete=models.SET_NULL, null=True, blank=True
-    )
+    certificate_request = models.ForeignKey(to="pki_bridge.CertificateRequest", on_delete=models.SET_NULL, null=True, blank=True)
     text = models.TextField()
 
     def __str__(self):
-        return f'{self.text}'
+        return f"{self.text}"
 
     class Meta:
-        verbose_name = 'Note'
-        verbose_name_plural = 'Notes'
+        verbose_name = "Note"
+        verbose_name_plural = "Notes"
 
 
 class CertificateRequest(TimeMixin, AuthorMixin):
-    requester = models.ForeignKey(to='pki_bridge.Requester', on_delete=models.SET_NULL, null=True, blank=True)
+    requester = models.ForeignKey(to="pki_bridge.Requester", on_delete=models.SET_NULL, null=True, blank=True)
     template = models.TextField()
     domain = models.TextField()
     SAN = models.TextField()
     csr = models.TextField()
-    certificate = models.OneToOneField(to='pki_bridge.Certificate', on_delete=models.SET_NULL, null=True, blank=True)
+    certificate = models.OneToOneField(to="pki_bridge.Certificate", on_delete=models.SET_NULL, null=True, blank=True)
 
     def __str__(self):
-        return f'{self.requester}'
+        return f"{self.id}: {self.requester}"
 
     class Meta:
-        ordering = ['id', ]
+        ordering = [
+            "id",
+        ]
         verbose_name = "CertificateRequest"
         verbose_name_plural = "CertificateRequests"
 
@@ -91,25 +94,25 @@ class Certificate(TimeMixin, AuthorMixin):
     def populate(self):
         pem = self.pem
         # cryptography_json_cert = Converter(pem, 'pem', 'json').cert
-        pyopenssl_cert = Converter(pem, 'pem', 'pyopenssl_cert').cert
-        pyopenssl_json_cert = Converter(pyopenssl_cert, 'pyopenssl_cert', 'json').cert
+        pyopenssl_cert = Converter(pem, "pem", "pyopenssl_cert").cert
+        pyopenssl_json_cert = Converter(pyopenssl_cert, "pyopenssl_cert", "json").cert
 
-        self.issued_to = pyopenssl_json_cert['issued_to']
-        self.issuer_ou = pyopenssl_json_cert['issuer_ou']
-        self.issuer_cn = pyopenssl_json_cert['issuer_cn']
-        self.issued_o = pyopenssl_json_cert['issued_o']
-        self.issuer_c = pyopenssl_json_cert['issuer_c']
-        self.issuer_o = pyopenssl_json_cert['issuer_o']
+        self.issued_to = pyopenssl_json_cert["issued_to"]
+        self.issuer_ou = pyopenssl_json_cert["issuer_ou"]
+        self.issuer_cn = pyopenssl_json_cert["issuer_cn"]
+        self.issued_o = pyopenssl_json_cert["issued_o"]
+        self.issuer_c = pyopenssl_json_cert["issuer_c"]
+        self.issuer_o = pyopenssl_json_cert["issuer_o"]
 
-        self.cert_sha1 = pyopenssl_json_cert['cert_sha1']
-        self.cert_sans = pyopenssl_json_cert['cert_sans']
-        self.cert_alg = pyopenssl_json_cert['cert_alg']
-        self.cert_ver = pyopenssl_json_cert['cert_ver']
-        self.cert_sn = pyopenssl_json_cert['cert_sn']
+        self.cert_sha1 = pyopenssl_json_cert["cert_sha1"]
+        self.cert_sans = pyopenssl_json_cert["cert_sans"]
+        self.cert_alg = pyopenssl_json_cert["cert_alg"]
+        self.cert_ver = pyopenssl_json_cert["cert_ver"]
+        self.cert_sn = pyopenssl_json_cert["cert_sn"]
 
-        dt_format = '%Y-%m-%d'
-        valid_from = pyopenssl_json_cert['valid_from']
-        valid_till = pyopenssl_json_cert['valid_till']
+        dt_format = "%Y-%m-%d"
+        valid_from = pyopenssl_json_cert["valid_from"]
+        valid_till = pyopenssl_json_cert["valid_till"]
         valid_from = datetime.strptime(valid_from, dt_format)
         valid_till = datetime.strptime(valid_till, dt_format)
         valid_from = make_timezone_aware(valid_from)
@@ -130,7 +133,7 @@ class Certificate(TimeMixin, AuthorMixin):
     @property
     def is_from_different_ca(self):
         allowed_cns = AllowedCN.objects.filter(is_active=True)
-        allowed_cns = allowed_cns.values_list('name', flat=True)
+        allowed_cns = allowed_cns.values_list("name", flat=True)
         if self.issuer_cn not in allowed_cns:
             from_different_ca = True
         else:
@@ -140,9 +143,9 @@ class Certificate(TimeMixin, AuthorMixin):
     @property
     def is_self_signed(self):
         pem = self.pem
-        pyopenssl_cert = Converter(pem, 'pem', 'pyopenssl_cert').cert
-        pyopenssl_json_cert = Converter(pyopenssl_cert, 'pyopenssl_cert', 'json').cert
-        self_signed = pyopenssl_json_cert['self_signed']
+        pyopenssl_cert = Converter(pem, "pem", "pyopenssl_cert").cert
+        pyopenssl_json_cert = Converter(pyopenssl_cert, "pyopenssl_cert", "json").cert
+        self_signed = pyopenssl_json_cert["self_signed"]
         return self_signed
 
     @property
@@ -157,9 +160,9 @@ class Certificate(TimeMixin, AuthorMixin):
     def is_expired(self):
         try:
             pem = self.pem
-            pyopenssl_cert = Converter(pem, 'pem', 'pyopenssl_cert').cert
-            pyopenssl_json_cert = Converter(pyopenssl_cert, 'pyopenssl_cert', 'json').cert
-            expired = pyopenssl_json_cert['cert_exp']
+            pyopenssl_cert = Converter(pem, "pem", "pyopenssl_cert").cert
+            pyopenssl_json_cert = Converter(pyopenssl_cert, "pyopenssl_cert", "json").cert
+            expired = pyopenssl_json_cert["cert_exp"]
         except Exception:
             expired = self.days_left <= 0
         return expired
@@ -167,20 +170,20 @@ class Certificate(TimeMixin, AuthorMixin):
     @property
     def text_cert(self):
         pem = self.pem
-        converter = Converter(pem, 'pem', 'text')
+        converter = Converter(pem, "pem", "text")
         cert = converter.cert
         return cert
 
     @property
     def json_cert(self):
         pem = self.pem
-        converter = Converter(pem, 'pem', 'json')
+        converter = Converter(pem, "pem", "json")
         cert = converter.cert
         return cert
 
     def __str__(self):
-        return f'{self.id}'
+        return f"{self.id}"
 
     class Meta:
-        verbose_name = 'Certificate'
-        verbose_name_plural = 'Certificates'
+        verbose_name = "Certificate"
+        verbose_name_plural = "Certificates"

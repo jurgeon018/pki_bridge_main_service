@@ -15,9 +15,6 @@ pytest==6.2.3
 django-test-migrations==1.1.0
 pytest-django==4.1.0
 python-memcached==1.59
-
-
-
 # основной пакет https://pre-commit.com/
 pre-commit
 # для удаления неиспользуемых импортов (в нашем случае)
@@ -32,23 +29,23 @@ reorder-python-imports
 yesqa
 # линтеры
 flake8==3.9.0
-flake8-annotations
-flake8-annotations-coverage
-flake8-bandit
-flake8-broken-line
-flake8-bugbear
-flake8-builtins
-flake8-commas
-flake8-comprehensions
-flake8-debugger
-flake8-eradicate
-flake8-executable
-flake8-fixme
-flake8-future-import
-flake8-pyi
-flake8-pytest
-flake8-pytest-style
-flake8-mutable
-flake8-string-format
-flake8-todo
-flake8-unused-arguments
+# flake8-annotations
+# flake8-annotations-coverage
+# flake8-bandit
+# flake8-broken-line
+# flake8-bugbear
+# flake8-builtins
+# flake8-commas
+# flake8-comprehensions
+# flake8-debugger
+# flake8-eradicate
+# flake8-executable
+# flake8-fixme
+# flake8-future-import
+# flake8-pyi
+# flake8-pytest
+# flake8-pytest-style
+# flake8-mutable
+# flake8-string-format
+# flake8-todo
+# flake8-unused-arguments
