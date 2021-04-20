@@ -1,5 +1,6 @@
 import socket
 from unittest.mock import patch
+from django.utils import timezone
 
 import pytest
 from django.conf import settings
@@ -17,6 +18,38 @@ from pki_bridge.models import CertificateRequestScan
 from pki_bridge.models import Host
 from pki_bridge.models import HostScan
 from pki_bridge.models import ProjectSettings
+from pki_bridge.models import Requester
+from pki_bridge.tests.utils import get_pem
+
+from django.core import mail
+
+
+@pytest.fixture(scope='function')
+def mail_data():
+    hostname = 'google.com'
+    host = Host.objects.create(name=hostname)
+    scan = HostScan.objects.create(host=host)
+    return {
+        'hostname': hostname,
+        'port': 8000,
+        'host': host,
+        'certificate': Certificate.objects.create(pem=get_pem()),
+        'scan': scan,
+        'link': get_obj_admin_link(scan),
+    }
+
+
+@pytest.fixture(scope='function')
+def mail_requesters_data():
+    certificate = Certificate.objects.create(pem=get_pem())
+    certificate_request = CertificateRequest.objects.create(certificate=certificate)
+    certificate_request_scan = CertificateRequestScan.objects.create(certificate_request=certificate_request)
+    return {
+        'certificate': certificate,
+        'certificate_request': certificate_request,
+        'certificate_request_scan': certificate_request_scan,
+        'link': get_obj_admin_link(certificate_request_scan),
+    }
 
 
 @pytest.mark.django_db
@@ -54,10 +87,7 @@ class TestDbCertificateScanner:
         project_settings.certificates_per_page = certificates_per_page
         project_settings.save()
         for j in range(certificates_amount):
-            with open(settings.TEST_CERT_FILEPATH) as f:
-                certificate = Certificate.objects.create(
-                    pem=f.read(),
-                )
+            certificate = Certificate.objects.create(pem=get_pem())
             CertificateRequest.objects.create(
                 certificate=certificate,
             )
@@ -91,8 +121,7 @@ class TestDbCertificateScanner:
     ):
         CertificateRequestScan.objects.all().delete()
         assert CertificateRequestScan.objects.all().count() == 0
-        with open(settings.TEST_CERT_FILEPATH) as f:
-            pem = f.read()
+        pem = get_pem()
         unvalid_pem = "unvalid_pem"
         # checks if doesnt try to create certificate request scan when certificate is None
         certificate_request = CertificateRequest.objects.create()
@@ -114,7 +143,7 @@ class TestDbCertificateScanner:
         certificate.save()
         certificate_request = CertificateRequest.objects.create(certificate=certificate)
         result = Scanner().scan_db_certficate(certificate_request)
-        # # assert result is None
+        # assert result is None
         assert CertificateRequestScan.objects.all().count() == 1
         assert CertificateRequestScan.objects.all().first().error_message is not None
 
@@ -134,9 +163,7 @@ class TestDbCertificateScanner:
         mocked_notify_about_self_signed.return_value = None
         mocked_notify_about_almost_expired.return_value = None
         mocked_notify_about_expired.return_value = None
-        with open(settings.TEST_CERT_FILEPATH) as f:
-            pem = f.read()
-        certificate = Certificate.objects.create(pem=pem)
+        certificate = Certificate.objects.create(pem=get_pem())
         certificate_request = CertificateRequest.objects.create(certificate=certificate)
         certificate_request_scan = CertificateRequestScan.objects.create(
             certificate_request=certificate_request,
@@ -167,21 +194,101 @@ class TestDbCertificateScanner:
         else:
             mocked_notify_about_different_ca.assert_not_called()
 
-    # # TODO test_notify_about_expired
-    # def test_notify_about_expired(self):
-    #     pass
+    def test_notify_about_expired(self, mail_requesters_data):
+        certificate = mail_requesters_data['certificate']
+        certificate_request = mail_requesters_data['certificate_request']
+        certificate_request_scan = mail_requesters_data['certificate_request_scan']
+        link = mail_requesters_data['link']
+        expiration_date = certificate.valid_till
+        days = timezone.now() - expiration_date
+        days = days.days
 
-    # # TODO test_notify_about_almost_expired
-    # def test_notify_about_almost_expired(self):
-    #     pass
+        certificate_request.requester = None
+        certificate_request.save()
+        recipient_list = []
+        result = Scanner().notify_about_expired(certificate_request_scan, certificate_request, certificate, link)
+        outbox = mail.outbox
+        assert result is None
+        assert len(outbox) == 0
+        certificate_request.requester = Requester.objects.create(email='andrey.mendela@leonteq.com')
+        certificate_request.save()
+        recipient_list = ['andrey.mendela@leonteq.com']
+        result = Scanner().notify_about_expired(certificate_request_scan, certificate_request, certificate, link)
+        assert result is None
+        assert len(outbox) == 1
+        assert outbox[-1].subject == f"Expired certificate notification #{certificate_request_scan.id}"
+        assert outbox[-1].body == f"Certificate of {certificate_request.id} has expired {expiration_date}({days} days ago). More info: {link}"
+        assert outbox[-1].from_email == ProjectSettings.get_solo().default_from_email
+        assert outbox[-1].recipients() == recipient_list
 
-    # # TODO test_notify_about_self_signed
-    # def test_notify_about_self_signed(self):
-    #     pass
+    def test_notify_about_almost_expired(self, mail_requesters_data):
+        certificate = mail_requesters_data['certificate']
+        certificate_request = mail_requesters_data['certificate_request']
+        certificate_request_scan = mail_requesters_data['certificate_request_scan']
+        link = mail_requesters_data['link']
+        certificate_request.requester = None
+        certificate_request.save()
+        recipient_list = []
+        result = Scanner().notify_about_almost_expired(certificate_request_scan, certificate_request, certificate, link)
+        outbox = mail.outbox
+        assert result is None
+        assert len(outbox) == 0
+        certificate_request.requester = Requester.objects.create(email='andrey.mendela@leonteq.com')
+        certificate_request.save()
+        recipient_list = ['andrey.mendela@leonteq.com']
+        result = Scanner().notify_about_almost_expired(certificate_request_scan, certificate_request, certificate, link)
+        assert result is None
+        assert len(outbox) == 1
+        assert outbox[-1].subject == f"Expiration of {certificate_request.id} certificate."
+        assert outbox[-1].body == f"Certificate of certificate_request #{certificate_request.id} will expire in {certificate.valid_days_to_expire} days. More info: {link}"
+        assert outbox[-1].from_email == ProjectSettings.get_solo().default_from_email
+        assert outbox[-1].recipients() == recipient_list
 
-    # # TODO test_notify_about_different_ca
-    # def test_notify_about_different_ca(self):
-    #     pass
+    def test_notify_about_self_signed(self, mail_requesters_data):
+        certificate = mail_requesters_data['certificate']
+        certificate_request = mail_requesters_data['certificate_request']
+        certificate_request_scan = mail_requesters_data['certificate_request_scan']
+        link = mail_requesters_data['link']
+        certificate_request.requester = None
+        certificate_request.save()
+        recipient_list = []
+        result = Scanner().notify_about_self_signed(certificate_request_scan, certificate_request, certificate, link)
+        outbox = mail.outbox
+        assert len(outbox) == 0
+        assert result is None
+        certificate_request.requester = Requester.objects.create(email='andrey.mendela@leonteq.com')
+        certificate_request.save()
+        recipient_list = ['andrey.mendela@leonteq.com']
+        result = Scanner().notify_about_self_signed(certificate_request_scan, certificate_request, certificate, link)
+        assert result is None
+        assert len(outbox) == 1
+        outbox[0].subject == f"Self-signed certificate on certificate_request #{certificate_request.id}."
+        outbox[0].body == f"Certificate of certificate_request #{certificate_request.id} is self-signed. Please change. More info: {link}"
+        outbox[0].from_email == ProjectSettings.get_solo().default_from_email
+        outbox[0].recipients() == recipient_list
+
+    def test_notify_about_different_ca(self, mail_requesters_data):
+        certificate = mail_requesters_data['certificate']
+        certificate_request = mail_requesters_data['certificate_request']
+        certificate_request_scan = mail_requesters_data['certificate_request_scan']
+        link = mail_requesters_data['link']
+        certificate_request.requester = None
+        certificate_request.save()
+        recipient_list = []
+        result = Scanner().notify_about_different_ca(certificate_request_scan, certificate_request, certificate, link)
+        outbox = mail.outbox
+        assert result is None
+        assert len(outbox) == 0
+        certificate_request.requester = Requester.objects.create(email='andrey.mendela@leonteq.com')
+        certificate_request.save()
+        recipient_list = ['andrey.mendela@leonteq.com']
+        result = Scanner().notify_about_different_ca(certificate_request_scan, certificate_request, certificate, link)
+        assert result is None
+        assert len(outbox) == 1
+        outbox[0].subject == f"Foreign certificate on certificate_request #{certificate_request.id}."
+        outbox[0].body == f"Certificate of certificate_request #{certificate_request.id} is from different CA. Please change. More info: {link}"
+        outbox[0].from_email == ProjectSettings.get_solo().default_from_email
+        outbox[0].recipients() == recipient_list
 
     def test_analyze_scan_results(self):
         pass
@@ -257,8 +364,7 @@ class TestNetworkScanner:
         assert HostScan.objects.all().count() == 0
         assert Certificate.objects.all().count() == 0
 
-        with open(settings.TEST_CERT_FILEPATH) as f:
-            pem = f.read()
+        pem = get_pem()
         with open(settings.TEST_CERT2_FILEPATH) as f:
             pem2 = f.read()
         pyopenssl_cert = Converter(pem, "pem", "pyopenssl_cert").cert
@@ -325,9 +431,7 @@ class TestNetworkScanner:
     ):
         host = Host.objects.create(name="host")
         port = 8000
-        with open(settings.TEST_CERT_FILEPATH) as f:
-            pem = f.read()
-        certificate = Certificate.objects.create(pem=pem)
+        certificate = Certificate.objects.create(pem=get_pem())
         scan = HostScan.objects.create(host=host)
         link = get_obj_admin_link(scan)
 
@@ -354,25 +458,111 @@ class TestNetworkScanner:
         else:
             mail_admins_about_expired_mock.assert_not_called()
 
-    # # TODO test_mail_admins_about_expired
-    # def test_mail_admins_about_expired(self):
-    #     result = Scanner().mail_admins_about_expired()
-    #     # assert result == result
+    def test_mail_admins_about_expired(self, mail_data):
+        host = mail_data['host']
+        port = mail_data['port']
+        certificate = mail_data['certificate']
+        scan = mail_data['scan']
+        link = mail_data['link']
+        expiration_date = certificate.valid_till
+        days = timezone.now() - expiration_date
+        days = days.days
+        recipient_list = []
+        host.contacts = None
+        host.save()
+        result = Scanner().mail_admins_about_expired(host, port, certificate, scan, link)
+        assert result is None   
+        outbox = mail.outbox
+        assert len(outbox) == 0
 
-    # # TODO test_mail_admins_about_almost_expired
-    # def test_mail_admins_about_almost_expired(self):
-    #     result = Scanner().mail_admins_about_almost_expired()
-    #     # assert result == result
+        recipient_list = ['andrey.mendela@leonteq.com']
+        host.contacts = 'andrey.mendela@leonteq.com'
+        host.save()
+        result = Scanner().mail_admins_about_expired(host, port, certificate, scan, link)
+        assert len(outbox) == 1
+        assert result is None   
+        assert outbox[0].subject == f"Expired certificate notification #{scan.id}."
+        assert outbox[0].body == f"Certificate of {host.name} has expired {expiration_date}({days} days ago). More info: {link}"
+        assert outbox[0].from_email == ProjectSettings.get_solo().default_from_email
+        assert outbox[0].recipients() == recipient_list
 
-    # # TODO test_mail_admins_about_self_signed
-    # def test_mail_admins_about_self_signed(self):
-    #     result = Scanner().mail_admins_about_self_signed()
-    #     # assert result == result
+    def test_mail_admins_about_almost_expired(self, mail_data):
+        host = mail_data['host']
+        port = mail_data['port']
+        certificate = mail_data['certificate']
+        scan = mail_data['scan']
+        link = mail_data['link']
 
-    # # TODO test_mail_admins_about_different_ca
-    # def test_mail_admins_about_different_ca(self):
-    #     result = Scanner().mail_admins_about_different_ca()
-    #     # assert result == result
+        host.contacts = None
+        host.save()
+        recipient_list = []
+        result = Scanner().mail_admins_about_almost_expired(host, port, certificate, scan, link)
+        outbox = mail.outbox
+        assert len(outbox) == 0
+        assert result is None
+
+        host.contacts = 'andrey.mendela@leonteq.com'
+        host.save()
+        recipient_list = ['andrey.mendela@leonteq.com']
+        result = Scanner().mail_admins_about_almost_expired(host, port, certificate, scan, link)
+        assert result is None
+        assert len(outbox) == 1
+        assert outbox[0].subject == f'Expiration of {host} certificate.'
+        assert outbox[0].body == f'Certificate of host {host.name} will expire in {certificate.valid_days_to_expire} days. More info: {link}'
+        assert outbox[0].from_email == ProjectSettings.get_solo().default_from_email
+        assert outbox[0].recipients() == recipient_list
+
+    def test_mail_admins_about_self_signed(self, mail_data):
+        host = mail_data['host']
+        port = mail_data['port']
+        certificate = mail_data['certificate']
+        scan = mail_data['scan']
+        link = mail_data['link']
+        
+        host.contacts = None
+        host.save()
+        recipient_list = []
+        result = Scanner().mail_admins_about_self_signed(host, port, certificate, scan, link)
+        outbox = mail.outbox
+        assert len(outbox) == 0
+        assert result is None
+
+        host.contacts = 'andrey.mendela@leonteq.com'
+        host.save()
+        recipient_list = ['andrey.mendela@leonteq.com']
+        result = Scanner().mail_admins_about_self_signed(host, port, certificate, scan, link)
+        assert len(outbox) == 1
+        assert outbox[0].subject == f"Self-signed certificate on {host.name}."
+        assert outbox[0].body == f"Certificate of host {host.name} is self-signed. Please change. More info: {link}"
+        assert outbox[0].from_email == ProjectSettings.get_solo().default_from_email
+        assert outbox[0].recipients() == recipient_list
+        assert result is None
+
+    def test_mail_admins_about_different_ca(self, mail_data):
+        host = mail_data['host']
+        port = mail_data['port']
+        certificate = mail_data['certificate']
+        scan = mail_data['scan']
+        link = mail_data['link']
+        
+        host.contacts = None
+        host.save()
+        recipient_list = []
+        result = Scanner().mail_admins_about_different_ca(host, port, certificate, scan, link)
+        assert result is None
+        outbox = mail.outbox
+        assert len(outbox) == 0
+
+        host.contacts = 'andrey.mendela@leonteq.com'
+        host.save()
+        recipient_list = ['andrey.mendela@leonteq.com']
+        result = Scanner().mail_admins_about_different_ca(host, port, certificate, scan, link)
+        assert len(outbox) == 1
+        assert outbox[0].subject == f"Foreign certificate on host {host}."
+        assert outbox[0].body == f"Certificate of host {host} is from different CA. Please change. More info: {link}"
+        assert outbox[0].from_email == ProjectSettings.get_solo().default_from_email
+        assert outbox[0].recipients() == recipient_list
+        assert result is None
 
     @patch("pki_bridge.core.scanner.logger")
     @patch("pki_bridge.core.scanner.socket.gethostbyname")
@@ -486,3 +676,41 @@ class TestScanner:
         Scanner().scan_network()
         scan_hosts.assert_called_with()
         scan_db_certificates.assert_called_with()
+
+
+@pytest.mark.django_db
+def test_mail(client):
+    mail_tester(client)
+
+def mail_tester(client):
+    outbox = mail.outbox
+    subject = 'subject'
+    message = 'message'
+    from_email = ProjectSettings.get_solo().default_from_email
+    recipient_list = ''
+    recipient_list += 'andrey.mendela@leonteq.com,'
+    recipient_list += 'menan@leonteq.com'
+    data = {
+        'secret_key':'69018',
+        'subject': subject,
+        'message': message,
+        'recipient_list': recipient_list,
+    }
+    assert len(outbox) == 0
+    from pki_bridge.views import test_mail as test_mail_view
+
+    class Request:
+        def __init__(self, data):
+            self.POST = data
+
+    response = test_mail_view(Request(data))
+    # response = client.get('/test_mail/', data=data)
+    msg = outbox[0]
+    assert response.content == b'mail was sent'
+    assert len(outbox) == 1
+    assert msg.subject == subject
+    assert msg.from_email == from_email
+    assert msg.body == message
+    assert msg.recipients() == recipient_list.split(',')
+    assert msg.to == recipient_list.split(',')
+

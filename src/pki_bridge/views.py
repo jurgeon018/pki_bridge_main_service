@@ -128,21 +128,30 @@ def create_certificate_request(pem, requester_email, template, domain, SAN, csr,
 def get_intermediary_response(csr, domain, template, SAN):
     try:
         data = {
-            "secret_key": WINDOWS_SECRET_KEY,
-            "csr": csr,
-            "domain": domain,
-            "template": template,
-            "san": SAN,
+            # "secret_key": WINDOWS_SECRET_KEY,
+            # "csr": csr,
+            # "domain": domain,
+            # "template": template,
+            # "san": SAN,
+
+            'csr': csr,
+            'common_name':common_name,
+        }
+        headers = {
+            'Authorization': 'token'
         }
         response = requests.post(
-            f"{WINDOWS_URL}/submit",
+            url='vaultproject.io/pki/sign-certificate/',
+            # url=f"{WINDOWS_URL}/submit",
             verify=False,
             json=data,
             # files={
             #     'data': (None, json.dumps(data), 'application/json'),
             #     'csr': ('csr_file', csr_file, 'application/octet-stream')
             # }
+            headers=headers,
         )
+
         response = response.json()
     except requests.exceptions.ConnectionError as e:
         if settings.DEBUG and settings.MOCK_INTERMEDIARY_RESPONSE:
@@ -471,17 +480,27 @@ def getcacertchain(request):
 
 
 def test_mail(request):
-    res = send_mail(
-        "Test mail.",
-        "Test mail.",
-        settings.DEFAULT_FROM_EMAIL,
-        [
-            "jurgeon018@gmail.com",
-            "andrey.mendela@leonteq.com",
-            "menan@leonteq.com",
-        ],
-        fail_silently=False,
-    )
+    data = request.POST or request.GET
+    if data.get('secret_key') != '69018':
+        return HttpResponse('Invalid secret key')
+    default_subject = 'Test Subject'
+    default_message = 'Test Message'
+    default_recipient_list = ''
+    default_recipient_list += 'andrey.mendela@leonteq.com,'
+    default_recipient_list += 'menan@leonteq.com,'
+    # default_recipient_list += 'jurgeon018@gmail.com,'
+    subject = data.get('subject', default_subject)
+    message = data.get('message', default_message)
+    recipient_list = data.get('recipient_list', default_recipient_list)
+    recipient_list = recipient_list.replace('\n', '').replace(' ', '').split(',')
+    try:
+        recipient_list.remove('')
+    except ValueError:
+        pass
+    from_email = db_settings.default_from_email
+    fail_silently = False
+    print("recipient_list", recipient_list)
+    res = send_mail(subject, message, from_email, recipient_list, fail_silently)
     print(res)
     print(type(res))
     return HttpResponse("mail was sent")

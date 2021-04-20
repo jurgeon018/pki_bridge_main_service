@@ -104,7 +104,6 @@ prep_db:
 	make m
 	make r
 
-
 clear:
 	make rmdb
 	make rmmig

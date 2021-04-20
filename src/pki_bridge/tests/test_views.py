@@ -251,38 +251,38 @@ class TestSigncert:
             response = client.post("/api/v1/signcert/", data=data)
         assert response.status_code == 200
 
-    # @patch('pki_bridge.views.requests.post')
-    @patch.object(requests, "post")
-    def test_get_intermediary_response(self, mocked_requests):
-        # test if returns dict(response.json())
-        url = f"{WINDOWS_URL}/submit"
-        response = mocked_response(url)
-        mocked_requests.return_value = response
-        csr = "csr"
-        domain = "domain"
-        template = "template"
-        SAN = "SAN"
-        result = get_intermediary_response(csr, domain, template, SAN)
-        assert isinstance(result, dict)
-        # test if called with
-        data = {
-            "secret_key": settings.WINDOWS_SECRET_KEY,
-            "csr": csr,
-            "domain": domain,
-            "template": template,
-            "san": SAN,
-        }
-        mocked_requests.assert_called_with(url, verify=False, json=data)
-        # test if returns message when ConnectionError occurs
-        error_message = "msg"
-        mocked_requests.side_effect = requests.exceptions.ConnectionError(error_message)
-        result = get_intermediary_response(csr, domain, template, SAN)
-        assert result == f"Cannot connect to intermediary.\n{error_message}.\n"
-        # test if returns message when Exception occurs
-        error_message = "msg"
-        mocked_requests.side_effect = Exception(error_message)
-        result = get_intermediary_response(csr, domain, template, SAN)
-        assert result == f"Error occured. {error_message}. \n"
+    # # @patch('pki_bridge.views.requests.post')
+    # @patch.object(requests, "post")
+    # def test_get_intermediary_response(self, mocked_requests):
+    #     # test if returns dict(response.json())
+    #     url = f"{WINDOWS_URL}/submit"
+    #     response = mocked_response(url)
+    #     mocked_requests.return_value = response
+    #     csr = "csr"
+    #     domain = "domain"
+    #     template = "template"
+    #     SAN = "SAN"
+    #     result = get_intermediary_response(csr, domain, template, SAN)
+    #     assert isinstance(result, dict)
+    #     # test if called with
+    #     data = {
+    #         "secret_key": settings.WINDOWS_SECRET_KEY,
+    #         "csr": csr,
+    #         "domain": domain,
+    #         "template": template,
+    #         "san": SAN,
+    #     }
+    #     mocked_requests.assert_called_with(url, verify=False, json=data)
+    #     # test if returns message when ConnectionError occurs
+    #     error_message = "msg"
+    #     mocked_requests.side_effect = requests.exceptions.ConnectionError(error_message)
+    #     result = get_intermediary_response(csr, domain, template, SAN)
+    #     assert result == f"Cannot connect to intermediary.\n{error_message}.\n"
+    #     # test if returns message when Exception occurs
+    #     error_message = "msg"
+    #     mocked_requests.side_effect = Exception(error_message)
+    #     result = get_intermediary_response(csr, domain, template, SAN)
+    #     assert result == f"Error occured. {error_message}. \n"
 
     @patch("pki_bridge.views.send_mail")
     def test_send_certificate_to_mail(self, mocked_send_mail):

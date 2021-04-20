@@ -31,6 +31,69 @@ INSTALLED_APPS = [
 ]
 APPEND_SLASH = True
 # APPEND_SLASH = False
+# project settings
+with open(BASE_DIR / "fixtures" / "cer.cer") as f:
+    CA = f.read()
+with open(BASE_DIR / "fixtures" / "cer.cer") as f:
+    INTERMEDIARY = f.read()
+with open(BASE_DIR / "fixtures" / "chain.cer") as f:
+    CHAIN = f.read()
+PORTS = config("PORTS", cast=Csv())
+LDAP_USERNAME = config("LDAP_USERNAME", cast=str)
+LDAP_PASSWORD = config("LDAP_PASSWORD", cast=str)
+ALLOWED_REQUESTS = config("ALLOWED_REQUESTS", cast=int)
+RESET_PERIOD = config("RESET_PERIOD", cast=int)
+SCAN_TIMEOUT = config("SCAN_TIMEOUT", cast=int)
+DAYS_TO_EXPIRE = config("DAYS_TO_EXPIRE", cast=int)
+CERTIFICATES_PER_PAGE = config("CERTIFICATES_PER_PAGE", cast=int)
+HOSTS_PER_PAGE = config("HOSTS_PER_PAGE", cast=int)
+ALLOWED_CNS = [
+    'Vault PRD Intermediate CA fpprod.corp',
+    'Leonteq Class 3 Issuing CA',
+    'Infrastructure Services',
+    # "DigiCert SHA2 Secure Server CA",
+    # "GTS CA 1O1",
+]
+ENABLE_MAIL_NOTIFICATIONS = config("ENABLE_MAIL_NOTIFICATIONS", cast=bool)
+SCANNER_SECRET_KEY = config("SCANNER_SECRET_KEY", cast=str)
+ENABLE_TEMPLATE_RIGHTS_VALIDATION = config("ENABLE_TEMPLATE_RIGHTS_VALIDATION", cast=bool)
+VALIDATE_TEMPLATES = config("VALIDATE_TEMPLATES", cast=bool)
+UPDATE_TEMPLATES_FROM_CA = config("UPDATE_TEMPLATES_FROM_CA", cast=bool)
+ALLOW_USE_FILE_AS_LDAP_RESULTS = config("ALLOW_USE_FILE_AS_LDAP_RESULTS", cast=bool)
+DEFAULT_CONTACTS_FOR_NOTIFICATIONS = config("DEFAULT_CONTACTS_FOR_NOTIFICATIONS", cast=str)
+
+TEST_CERT_FILEPATH = BASE_DIR / "fixtures" / "test_certificate.pem"
+TEST_CERT2_FILEPATH = BASE_DIR / "fixtures" / "cer.cer"
+TEST_CSR_FILEPATH = "src/test_data/pki_test.csr"
+WINDOWS_SECRET_KEY = "windows_service_69018"
+WINDOWS_SCHEMA = config("WINDOWS_SCHEMA")
+WINDOWS_HOST = config("WINDOWS_HOST")
+WINDOWS_PORT = config("WINDOWS_PORT")
+WINDOWS_URL = f"{WINDOWS_SCHEMA}://{WINDOWS_HOST}:{WINDOWS_PORT}"
+
+# local project settings
+MOCK_INTERMEDIARY_RESPONSE = True
+# mail
+
+EMAIL_BACKEND = "pki_bridge.backends.ConfiguredEmailBackend"
+# EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_SUBJECT_PREFIX = "[Pki bridge]"
+EMAIL_HOST_PASSWORD = config("EMAIL_HOST_PASSWORD")
+# EMAIL_HOST_USER = 'menan@leonteq.com'
+EMAIL_HOST_USER = "andrey.mendela@leonteq.com"
+EMAIL_HOST = "devmail.fpprod.corp"
+# EMAIL_HOST = 'mail.fpprod.corp'
+EMAIL_PORT = 465
+EMAIL_USE_SSL = True
+EMAIL_USE_TLS = False
+ADMINS = (("andrey mendela", "andrey.mendela@leonteq.com"),)
+MANAGERS = ADMINS
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+SERVER_EMAIL = EMAIL_HOST_USER
+IGNORABLE_404_URLS = [
+    re.compile(r"\.(php|cgi)$"),
+    re.compile(r"^/phpmyadmin/"),
+]
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -108,65 +171,6 @@ MEDIA_ROOT = BASE_DIR / "media"
 AUTH_USER_MODEL = "pki_bridge.ProjectUser"
 SITE_ID = 1
 
-# project settings
-with open(BASE_DIR / "fixtures" / "cer.cer") as f:
-    CA = f.read()
-with open(BASE_DIR / "fixtures" / "cer.cer") as f:
-    INTERMEDIARY = f.read()
-with open(BASE_DIR / "fixtures" / "chain.cer") as f:
-    CHAIN = f.read()
-PORTS = config("PORTS", cast=Csv())
-LDAP_USERNAME = config("LDAP_USERNAME", cast=str)
-LDAP_PASSWORD = config("LDAP_PASSWORD", cast=str)
-ALLOWED_REQUESTS = config("ALLOWED_REQUESTS", cast=int)
-RESET_PERIOD = config("RESET_PERIOD", cast=int)
-SCAN_TIMEOUT = config("SCAN_TIMEOUT", cast=int)
-DAYS_TO_EXPIRE = config("DAYS_TO_EXPIRE", cast=int)
-CERTIFICATES_PER_PAGE = config("CERTIFICATES_PER_PAGE", cast=int)
-HOSTS_PER_PAGE = config("HOSTS_PER_PAGE", cast=int)
-ALLOWED_CNS = [
-    "DigiCert SHA2 Secure Server CA",
-    "GTS CA 1O1",
-]
-ENABLE_MAIL_NOTIFICATIONS = config("ENABLE_MAIL_NOTIFICATIONS", cast=bool)
-SCANNER_SECRET_KEY = config("SCANNER_SECRET_KEY", cast=str)
-ENABLE_TEMPLATE_RIGHTS_VALIDATION = config("ENABLE_TEMPLATE_RIGHTS_VALIDATION", cast=bool)
-VALIDATE_TEMPLATES = config("VALIDATE_TEMPLATES", cast=bool)
-UPDATE_TEMPLATES_FROM_CA = config("UPDATE_TEMPLATES_FROM_CA", cast=bool)
-ALLOW_USE_FILE_AS_LDAP_RESULTS = config("ALLOW_USE_FILE_AS_LDAP_RESULTS", cast=bool)
-
-TEST_CERT_FILEPATH = BASE_DIR / "fixtures" / "test_certificate.pem"
-TEST_CERT2_FILEPATH = BASE_DIR / "fixtures" / "cer.cer"
-TEST_CSR_FILEPATH = "src/test_data/pki_test.csr"
-WINDOWS_SECRET_KEY = "windows_service_69018"
-WINDOWS_SCHEMA = config("WINDOWS_SCHEMA")
-WINDOWS_HOST = config("WINDOWS_HOST")
-WINDOWS_PORT = config("WINDOWS_PORT")
-WINDOWS_URL = f"{WINDOWS_SCHEMA}://{WINDOWS_HOST}:{WINDOWS_PORT}"
-
-# local project settings
-MOCK_INTERMEDIARY_RESPONSE = True
-# mail
-
-EMAIL_BACKEND = "pki_bridge.backends.ConfiguredEmailBackend"
-# EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_SUBJECT_PREFIX = "[Pki bridge]"
-EMAIL_HOST_PASSWORD = config("EMAIL_HOST_PASSWORD")
-# EMAIL_HOST_USER = 'menan@leonteq.com'
-EMAIL_HOST_USER = "andrey.mendela@leonteq.com"
-EMAIL_HOST = "devmail.fpprod.corp"
-# EMAIL_HOST = 'mail.fpprod.corp'
-EMAIL_PORT = 465
-EMAIL_USE_SSL = True
-EMAIL_USE_TLS = False
-ADMINS = (("andrey mendela", "andrey.mendela@leonteq.com"),)
-MANAGERS = ADMINS
-DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
-SERVER_EMAIL = EMAIL_HOST_USER
-IGNORABLE_404_URLS = [
-    re.compile(r"\.(php|cgi)$"),
-    re.compile(r"^/phpmyadmin/"),
-]
 
 # logging
 

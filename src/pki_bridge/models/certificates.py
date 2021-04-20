@@ -59,7 +59,7 @@ class CertificateRequest(TimeMixin, AuthorMixin):
     certificate = models.OneToOneField(to="pki_bridge.Certificate", on_delete=models.SET_NULL, null=True, blank=True)
 
     def __str__(self):
-        return f"{self.id}: {self.requester}"
+        return f"{self.id}: {self.requester}, {self.created}"
 
     class Meta:
         ordering = [
@@ -72,8 +72,8 @@ class CertificateRequest(TimeMixin, AuthorMixin):
 class Certificate(TimeMixin, AuthorMixin):
     pem = models.TextField(null=False, blank=False)
 
-    cert_info = models.TextField(null=True, blank=True)
-    cert_json = models.TextField(null=True, blank=True)
+    valid_from = models.DateTimeField(blank=True, null=True)
+    valid_till = models.DateTimeField(blank=True, null=True)
 
     issued_to = models.TextField(blank=True, null=True)
     issuer_ou = models.TextField(blank=True, null=True)
@@ -81,19 +81,21 @@ class Certificate(TimeMixin, AuthorMixin):
     issued_o = models.TextField(blank=True, null=True)
     issuer_c = models.TextField(blank=True, null=True)
     issuer_o = models.TextField(blank=True, null=True)
-
     cert_sha1 = models.TextField(blank=True, null=True)
     cert_sans = models.TextField(blank=True, null=True)
     cert_alg = models.TextField(blank=True, null=True)
     cert_ver = models.IntegerField(blank=True, null=True)
     cert_sn = models.TextField(blank=True, null=True)
 
-    valid_from = models.DateTimeField(blank=True, null=True)
-    valid_till = models.DateTimeField(blank=True, null=True)
+    cert_info = models.TextField(null=True, blank=True)
+    cert_json = models.TextField(null=True, blank=True)
 
     def populate(self):
         pem = self.pem
         # cryptography_json_cert = Converter(pem, 'pem', 'json').cert
+        self.cert_info = Converter(self.pem, "pem", "text").cert
+        self.cert_json = Converter(self.pem, "pem", "json").cert
+
         pyopenssl_cert = Converter(pem, "pem", "pyopenssl_cert").cert
         pyopenssl_json_cert = Converter(pyopenssl_cert, "pyopenssl_cert", "json").cert
 
@@ -166,20 +168,6 @@ class Certificate(TimeMixin, AuthorMixin):
         except Exception:
             expired = self.days_left <= 0
         return expired
-
-    @property
-    def text_cert(self):
-        pem = self.pem
-        converter = Converter(pem, "pem", "text")
-        cert = converter.cert
-        return cert
-
-    @property
-    def json_cert(self):
-        pem = self.pem
-        converter = Converter(pem, "pem", "json")
-        cert = converter.cert
-        return cert
 
     def __str__(self):
         return f"{self.id}"

@@ -156,8 +156,9 @@ class Converter:
     def cryptography_cert_to_json(self, cryptography_cert):
         issuer = cryptography_cert.issuer
         subject = cryptography_cert.subject
-        assert issuer._attributes == issuer.rdns
-        assert subject._attributes == subject.rdns
+        # doesnt work for some of leonteq's hosts
+        # assert issuer._attributes == issuer.rdns
+        # assert subject._attributes == subject.rdns
         dict_subject = self.parse_rdns(subject.rdns)
         dict_issuer = self.parse_rdns(issuer.rdns)
         dt_format = "%Y.%m.%d %H:%M:%S"
@@ -190,10 +191,14 @@ class Converter:
 
         subject_components = dict(cert_subject.get_components())
         issuer_components = dict(cert_issuer.get_components())
-        _subject_CN = subject_components[b"CN"].decode("utf-8")
-        _issuer_CN = issuer_components[b"CN"].decode("utf-8")
-        assert _subject_CN == cert_subject.CN
-        assert _issuer_CN == cert_issuer.commonName
+        try:
+            _subject_CN = subject_components[b"CN"].decode("utf-8")
+            _issuer_CN = issuer_components[b"CN"].decode("utf-8")
+            assert _subject_CN == cert_subject.CN
+            assert _issuer_CN == cert_issuer.commonName
+        except KeyError as e:
+            _subject_CN = None
+            _issuer_CN = None
         # https://stackoverflow.com/questions/56763385/determine-if-ssl-certificate-is-self-signed-using-python
         json_cert["self_signed"] = _issuer_CN == _subject_CN
         json_cert["_subject_CN"] = _subject_CN

@@ -1,6 +1,7 @@
 import json
 import logging
 import socket
+from django.utils import timezone
 from ssl import PROTOCOL_TLSv1
 from threading import currentThread
 from threading import Thread
@@ -154,73 +155,60 @@ class DbCertificatesScanner:
         if certificate.is_from_different_ca:
             self.notify_about_different_ca(certificate_request_scan, certificate_request, certificate, link)
 
-    # TODO: add real emails
     def notify_about_expired(self, certificate_request_scan, certificate_request, certificate, link):
-        # TODO: count days or replace with date
-        days = "a few"
-        subject = f"Certificate of {certificate_request.id} has expired {days} days ago. More info: {link}"
-        message = f"Certificate of {certificate_request.id} has expired {days} days ago. More info: {link}"
-        recipient_list = []
-        recipient_list += [
-            "andrey.mendela@leonteq.com",
+        expiration_date = certificate.valid_till
+        days = timezone.now() - expiration_date
+        days = days.days
+        recipient_list = [
+            # "andrey.mendela@leonteq.com",
         ]
         if certificate_request.requester:
             recipient_list += [certificate_request.requester.email]
         send_mail(
-            subject=subject,
-            message=message,
+            subject=f"Expired certificate notification #{certificate_request_scan.id}",
+            message=f"Certificate of {certificate_request.id} has expired {expiration_date}({days} days ago). More info: {link}",
             from_email=db_settings.default_from_email,
             recipient_list=recipient_list,
             fail_silently=False,
         )
 
     def notify_about_almost_expired(self, certificate_request_scan, certificate_request, certificate, link):
-        subject = f"Expiration of {certificate_request.id} certificate."
-        message = f"Certificate of certificate_request #{certificate_request.id} "
-        message += f"will expire in {certificate.valid_days_to_expire} days. More info: {link}"
-        recipient_list = []
-        recipient_list += [
-            "andrey.mendela@leonteq.com",
+        recipient_list = [
+            # "andrey.mendela@leonteq.com",
         ]
         if certificate_request.requester:
             recipient_list += [certificate_request.requester.email]
         send_mail(
-            subject=subject,
-            message=message,
+            subject=f"Expiration of {certificate_request.id} certificate.",
+            message=f"Certificate of certificate_request #{certificate_request.id} will expire in {certificate.valid_days_to_expire} days. More info: {link}",
             from_email=db_settings.default_from_email,
             recipient_list=recipient_list,
             fail_silently=False,
         )
 
     def notify_about_self_signed(self, certificate_request_scan, certificate_request, certificate, link):
-        subject = f"Self-signed certificate on certificate_request #{certificate_request.id}."
-        message = f"Certificate of certificate_request #{certificate_request.id} is self-signed. Please change. More info: {link}"
-        recipient_list = []
-        recipient_list += [
-            "andrey.mendela@leonteq.com",
+        recipient_list = [
+            # "andrey.mendela@leonteq.com",
         ]
         if certificate_request.requester:
             recipient_list += [certificate_request.requester.email]
         send_mail(
-            subject=subject,
-            message=message,
+            subject=f"Self-signed certificate on certificate_request #{certificate_request.id}.",
+            message=f"Certificate of certificate_request #{certificate_request.id} is self-signed. Please change. More info: {link}",
             from_email=db_settings.default_from_email,
             recipient_list=recipient_list,
             fail_silently=False,
         )
 
     def notify_about_different_ca(self, certificate_request_scan, certificate_request, certificate, link):
-        subject = f"Foreign certificate on certificate_request #{certificate_request.id}."
-        message = f"Certificate of certificate_request #{certificate_request.id} is from different CA. Please change. More info: {link}"
-        recipient_list = []
-        recipient_list += [
-            "andrey.mendela@leonteq.com",
+        recipient_list = [
+            # "andrey.mendela@leonteq.com",
         ]
         if certificate_request.requester:
             recipient_list += [certificate_request.requester.email]
         send_mail(
-            subject=subject,
-            message=message,
+            subject=f"Foreign certificate on certificate_request #{certificate_request.id}.",
+            message=f"Certificate of certificate_request #{certificate_request.id} is from different CA. Please change. More info: {link}",
             from_email=db_settings.default_from_email,
             recipient_list=recipient_list,
             fail_silently=False,
@@ -232,12 +220,16 @@ class DbCertificatesScanner:
 
 
 class NetworkScanner:
-    def scan_hosts(self, verbosity=1):
+    verbosity = 1
+
+    def scan_hosts(self):
         start = time()
         scan_results = []
         threads = []
         hosts = Host.objects.filter(is_active=True)
         per_page = db_settings.hosts_per_page
+        # hosts = hosts[:5000]
+        # per_page = 100
         if per_page:
             paginated_hosts = Paginator(hosts, per_page=per_page)
             page_numbers = paginated_hosts.page_range
@@ -260,7 +252,7 @@ class NetworkScanner:
             scan_result = thread.join()
             scan_results.extend(scan_result)
         self.analyze_scan_results(scan_results)
-        if verbosity > 1:
+        if self.verbosity > 1:
             end = time() - start
             print(f"{len(hosts)} hosts has been scanned in {end} seconds.")
         return scan_results
@@ -276,10 +268,10 @@ class NetworkScanner:
                 scan_results.append(scan_result)
         return scan_results
 
-    def scan_host(self, host, port, verbosity=1):
-        if verbosity > 1:
+    def scan_host(self, host, port):
+        if self.verbosity > 1:
             print()
-            print(f"{host}:{port}. {currentThread()}")
+            print(f"INITIAL SCAN CREATION. {host}:{port}. {currentThread()}")
         scan = HostScan.objects.create(
             host=host,
             port=port,
@@ -320,6 +312,10 @@ class NetworkScanner:
             return {
                 "error_message": msg,
             }
+        if self.verbosity > 1:
+            print(f"{host}:{port}. {currentThread()}")
+            print(pyopenssl_json_cert)
+            print()
         certificate = Certificate.objects.create(
             pem=pem,
         )
@@ -330,7 +326,6 @@ class NetworkScanner:
             return result
 
     def mail_admins(self, host, port, certificate, scan):
-        # TODO: add real emails
         # TODOv2: analytics: save to db which mail was sent
         link = get_obj_admin_link(scan)
         if certificate.is_expired:
@@ -343,78 +338,68 @@ class NetworkScanner:
             self.mail_admins_about_different_ca(host, port, certificate, scan, link)
 
     def mail_admins_about_expired(self, host, port, certificate, scan, link):
-        # TODO: count days or replace with date
-        days = "a few"
-        subject = f"Certificate of {host.name} has expired {days} days ago. More info: {link}"
-        message = ""
-        recipient_list = []
-        recipient_list += [
-            "andrey.mendela@leonteq.com",
+        expiration_date = certificate.valid_till
+        days = timezone.now() - expiration_date
+        days = days.days
+        recipient_list = [
+            # "andrey.mendela@leonteq.com",
         ]
+        print(host.contacts)
         if host.contacts:
             recipient_list += [
                 host.contacts,
             ]
         send_mail(
-            subject=subject,
-            message=message,
+            subject=f"Expired certificate notification #{scan.id}.",
+            message=f"Certificate of {host.name} has expired {expiration_date}({days} days ago). More info: {link}",
             from_email=db_settings.default_from_email,
             recipient_list=recipient_list,
             fail_silently=False,
         )
 
     def mail_admins_about_almost_expired(self, host, port, certificate, scan, link):
-        subject = f"Expiration of {host} certificate."
-        message = f"Certificate of host {host} will expire in {valid_days_to_expire} days. More info: {link}"
-        recipient_list = []
-        recipient_list += [
-            "andrey.mendela@leonteq.com",
+        recipient_list = [
+            # "andrey.mendela@leonteq.com",
         ]
         if host.contacts:
             recipient_list += [
                 host.contacts,
             ]
         send_mail(
-            subject=subject,
-            message=message,
+            subject=f"Expiration of {host.name} certificate.",
+            message=f"Certificate of host {host.name} will expire in {certificate.valid_days_to_expire} days. More info: {link}",
             from_email=db_settings.default_from_email,
             recipient_list=recipient_list,
             fail_silently=False,
         )
 
     def mail_admins_about_self_signed(self, host, port, certificate, scan, link):
-        subject = f"Self-signed certificate on {host}."
-        message = f"Certificate of host {host} is self-signed. Please change. More info: {link}"
-        recipient_list = []
-        recipient_list += [
-            "andrey.mendela@leonteq.com",
+        recipient_list = [
+            # "andrey.mendela@leonteq.com",
         ]
         if host.contacts:
             recipient_list += [
                 host.contacts,
             ]
         send_mail(
-            subject=subject,
-            message=message,
+            subject=f"Self-signed certificate on {host.name}.",
+            message=f"Certificate of host {host.name} is self-signed. Please change. More info: {link}",
             from_email=db_settings.default_from_email,
             recipient_list=recipient_list,
             fail_silently=False,
         )
 
     def mail_admins_about_different_ca(self, host, port, certificate, scan, link):
-        subject = f"Foreign certificate on host {host}."
-        message = f"Certificate of host {host} is from different CA. Please change. More info: {link}"
-        recipient_list = []
-        recipient_list += [
-            "andrey.mendela@leonteq.com",
+        recipient_list = [
+            # "andrey.mendela@leonteq.com",
         ]
         if host.contacts:
             recipient_list += [
                 host.contacts,
             ]
         send_mail(
-            subject=subject,
-            message=message,
+            subject=f"Foreign certificate on host {host}.",
+            message=f"Certificate of host {host} is from different CA. Please change. More info: {link}",
             from_email=db_settings.default_from_email,
             recipient_list=recipient_list,
             fail_silently=False,

@@ -7,5 +7,7 @@ class Command(BaseCommand):
         '''
         python3 src/manage.py scan_network
         '''
-        Scanner().scan_network()
+        scanner = Scanner()
+        scanner.verbosity = 2
+        scanner.scan_network()
         print('Network has been scanned successfully.')

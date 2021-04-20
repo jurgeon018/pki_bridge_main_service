@@ -12,7 +12,7 @@ from pki_bridge.models import (
     ProjectUser,
 )
 
-
+from rangefilter.filter import DateTimeRangeFilter
 @admin.register(Template)
 class TemplateAdmin(BaseMixin, admin.ModelAdmin):
 
@@ -32,6 +32,13 @@ class TemplateAdmin(BaseMixin, admin.ModelAdmin):
     ]
     search_fields = [
         'name',
+    ]
+    list_filter = [
+        'created',
+        'updated',
+        ('created', DateTimeRangeFilter),
+        ('updated', DateTimeRangeFilter),
+
     ]
 
 
@@ -67,6 +74,12 @@ class CommandAdmin(BaseMixin, admin.ModelAdmin):
     search_fields = [
         'name',
     ]
+    list_filter = [
+        'created',
+        'updated',
+        ('created', DateTimeRangeFilter),
+        ('updated', DateTimeRangeFilter),
+    ]
 
 
 class TemplateInline(admin.TabularInline):
@@ -77,7 +90,7 @@ class TemplateInline(admin.TabularInline):
 
 
 @admin.register(ProjectUser)
-class ProjectUser(UserAdmin):
+class ProjectUserAdmin(UserAdmin):
     search_fields = ['username']
     inlines = [
         TemplateInline,

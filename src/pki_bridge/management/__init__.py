@@ -48,12 +48,12 @@ def gen_user(
         {
             'username': 'admin',
             'email': 'admin@example.com',
-            'password': 'admin',
+            'password': 'admin69018',
         },
         {
             'username': 'andrey.mendela',
             'email': 'andrey.mendela@leonteq.com',
-            'password': 'admin',
+            'password': 'admin69018',
         },
     ]
     for user_json in users_json:
@@ -187,6 +187,7 @@ def gen_networks(
     path = BASE_DIR / 'fixtures' / 'networks.json'
     with open(path) as f:
         networks = json.load(f)
+    contacts = settings.DEFAULT_CONTACTS_FOR_NOTIFICATIONS
     for i, json_network in enumerate(networks):
         # print(f'Network {i+1} of {len(networks)}')
         if not Network.objects.filter(
@@ -198,6 +199,7 @@ def gen_networks(
                 ip=json_network['ip'],
                 mask=json_network['mask'],
                 vlan_id=json_network['vlan_id'],
+                contacts=contacts
             )
         else:
             pass
@@ -213,8 +215,8 @@ def gen_hosts(
 
     scan_test = 1
     # scan_test = 0
-    # scan_real = 1
-    scan_real = 0
+    scan_real = 1
+    # scan_real = 0
 
     # test hosts
     if scan_test:
@@ -241,9 +243,9 @@ def gen_hosts(
             )
             for j, json_host in enumerate(json_network['hosts']):
                 # print(f"Host {j+1} of {len(json_network['hosts'])} of network {i+1}")
-                print("json_host: ", json_host)
+                # print("json_host: ", json_host)
                 hosts.append(Host(
-                    host=json_host['host'],
+                    name=json_host['host'],
                     network=network,
                     contacts=network.contacts,
                 ))
@@ -281,3 +283,66 @@ def set_domain_name(
     site.domain = domain
     site.name = domain
     site.save()
+
+
+def gen_random_data():
+    from pki_bridge.models import (
+        Certificate,
+        CertificateRequest,
+        CertificateRequestScan,
+        Requester,
+        Note,
+        HostScan,
+    )
+    CertificateRequestScan.objects.all().delete()
+    CertificateRequest.objects.all().delete()
+    Certificate.objects.all().delete()
+    HostScan.objects.all().delete()
+    Requester.objects.all().delete()
+    Note.objects.all().delete()
+    try:
+        # gen_user()
+        ProjectUser.objects.create_superuser(username='admin', password='admin')
+    except:
+        pass
+    update_templates()
+    gen_commands()
+    gen_networks_dict()
+    gen_networks_json()
+    gen_networks()
+    gen_hosts()
+    gen_allowed_cn()
+    gen_ports()
+    import random
+    from pki_bridge.tests.utils import get_pem
+    for i in range(10):
+        Requester.objects.create(email=f'email{i}')
+    for i in range(100):
+        Certificate.objects.create(pem=get_pem())
+    for certificate in Certificate.objects.all():
+        CertificateRequest.objects.create(
+            csr='fdsasdf',
+            domain=random.choice(['domain1', 'domain2', 'domain3']),
+            requester=random.choice(Requester.objects.all()),
+            SAN=random.choice(['SAN1', 'SAN2', 'SAN3']),
+            template=random.choice(['template1', 'template2', 'template3', 'template4']),
+            certificate=certificate,
+        )
+    for certificate_request in CertificateRequest.objects.all():
+        CertificateRequestScan.objects.create(
+            certificate_request=certificate_request,
+            error_message=random.choice(['msg1', 'msg2', 'msg3', None, None, None, None, None, None, None]),
+        )
+    for certificate_request in CertificateRequest.objects.all():
+        for i in range(random.randint(1, 5)):
+            Note.objects.create(
+                text=f'text{i}',
+                certificate_request=certificate_request,
+            )
+    for i in range(200):
+        HostScan.objects.create(
+            host=random.choice(Host.objects.all()),
+            port=random.choice(Port.objects.all()).name,
+            error_message=random.choice(['msg1', 'msg2', 'msg3', None, None, None, None, None, None, None]),
+            certificate=random.choice(Certificate.objects.all()),
+        )

@@ -106,19 +106,19 @@ class TestCertificate:
         expired = certificate.is_expired
         assert type(expired) is bool
 
-    def test_text_cert(self):
+    def test_cert_info(self):
         certificate = self.create_certificate()
         pem = certificate.pem
         converter = Converter(pem, 'pem', 'text')
         cert = converter.cert
-        assert certificate.text_cert == cert
+        assert certificate.cert_info == cert
 
-    def test_json_cert(self):
+    def test_cert_json(self):
         certificate = self.create_certificate()
         pem = certificate.pem
         converter = Converter(pem, 'pem', 'json')
         cert = converter.cert
-        assert certificate.json_cert == cert
+        assert certificate.cert_json == cert
 
 
 @pytest.mark.django_db
