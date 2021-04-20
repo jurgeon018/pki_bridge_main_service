@@ -113,7 +113,7 @@ clear:
 # django
 
 cpdatamig:
-	cp src/pki_bridge/data_migrations.py src/pki_bridge/migrations/data_migrations.py
+	cp src/pki_bridge/data_migrations.py src/pki_bridge/migrations/0002_data_migrations.py
 
 rmmig:
 	find ./src/ -path "*/migrations/*.py" -not -name "__init__.py" -delete

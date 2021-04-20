@@ -229,7 +229,7 @@ class NetworkScanner:
         hosts = Host.objects.filter(is_active=True)
         per_page = db_settings.hosts_per_page
         # hosts = hosts[:5000]
-        # per_page = 100
+        per_page = 100
         if per_page:
             paginated_hosts = Paginator(hosts, per_page=per_page)
             page_numbers = paginated_hosts.page_range
@@ -271,7 +271,7 @@ class NetworkScanner:
     def scan_host(self, host, port):
         if self.verbosity > 1:
             print()
-            print(f"INITIAL SCAN CREATION. {host}:{port}. {currentThread()}")
+            print(f"INITIAL SCAN CREATION. {host.id}.{host.name}:{port}. {currentThread()}")
         scan = HostScan.objects.create(
             host=host,
             port=port,
