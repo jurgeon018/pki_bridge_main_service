@@ -211,12 +211,10 @@ findjs:
 findcsv:
 	find ./src/ -name '*.csv' | xargs wc -l
 
-
-
-
 # pytest
 run_tests:
 	pytest src/pki_bridge/tests -v -s --disable-pytest-warnings
+
 coverage_run:
 	coverage run --source src -m pytest src/pki_bridge/tests
 
