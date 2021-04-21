@@ -61,6 +61,7 @@ def migrate_networks(apps, schema_editor):
 
 
 def migrate_hosts(apps, schema_editor):
+    print('migrate_hosts')
     Host = apps.get_model('pki_bridge', 'Host')
     Network = apps.get_model('pki_bridge', 'Network')
     gen_hosts(Host=Host, Network=Network)

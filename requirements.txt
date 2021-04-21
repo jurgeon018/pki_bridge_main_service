@@ -12,22 +12,15 @@ requests==2.25.1
 django-admin-autocomplete-filter==0.6.1
 django-admin-rangefilter==0.6.4
 pytest==6.2.3
-django-test-migrations==1.1.0
 pytest-django==4.1.0
+django-test-migrations==1.1.0
 python-memcached==1.59
-# основной пакет https://pre-commit.com/
 pre-commit
-# для удаления неиспользуемых импортов (в нашем случае)
 autoflake
-# форматируем код
 black
-# приводим его к последней версии
 pyupgrade
-# делаем красивые импорты
 reorder-python-imports
-# удаляем неиспользуемые noqa комментарии (для линтеров)
 yesqa
-# линтеры
 flake8==3.9.0
 # flake8-annotations
 # flake8-annotations-coverage
