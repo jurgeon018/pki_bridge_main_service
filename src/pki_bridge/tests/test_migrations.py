@@ -3,7 +3,7 @@ from django_test_migrations.plan import all_migrations, nodes_to_tuples
 
 
 @pytest.mark.django_db()
-def test_data_migrations(migrator):
+def test_0002_data_migrations(migrator):
 
     old_state = migrator.apply_initial_migration(('pki_bridge', None))
     with pytest.raises(LookupError):
@@ -54,7 +54,7 @@ def test_data_migrations(migrator):
     with pytest.raises(LookupError):
         new_state.apps.get_model('sites', 'Site')
 
-    new_state = migrator.apply_tested_migration(('pki_bridge', 'data_migrations'))
+    new_state = migrator.apply_tested_migration(('pki_bridge', '0002_data_migrations'))
 
     ContentType = new_state.apps.get_model('contenttypes', 'ContentType')
     assert ContentType.objects.all().count() != 0
@@ -92,7 +92,7 @@ def test_data_migrations(migrator):
 # https://micknelson.wordpress.com/2013/03/01/testing-django-migrations/#comments
 # from django_test_migrations.migrator import Migrator
 # @pytest.mark.django_db()
-# def test_data_migrations_2():
+# def test_0002_data_migrations_2():
 #     migrator = Migrator(database='default')
 
 #     old_state = migrator.before(('pki_bridge', '0001_initial'))
@@ -121,5 +121,5 @@ def test_data_migrations(migrator):
 #     main_migrations = all_migrations('default', apps)
 #     assert nodes_to_tuples(main_migrations) == [
 #         ('pki_bridge', '0001_initial'),
-#         ('pki_bridge', 'data_migrations'),
+#         ('pki_bridge', '0002_data_migrations'),
 #     ]

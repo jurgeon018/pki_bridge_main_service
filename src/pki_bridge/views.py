@@ -126,33 +126,36 @@ def create_certificate_request(pem, requester_email, template, domain, SAN, csr,
 
 
 def get_intermediary_response(csr, domain, template, SAN):
+    # import json
+    # with open('payload.json') as f:
+    #     payload = json.load(f)
+    data = {
+        # 'csr': payload['csr'],
+        # 'common_name': payload['common_name'],
+        # "domain": domain,
+        # "template": template,
+        "alt_names": SAN,
+        'format': 'pem',
+        'csr': csr,
+        'common_name': 'vault-dev.fpprod.corp',
+    }
+    headers = {
+        'X-Vault-Token': db_settings.vault_token,
+    }
+    vault_url = 'https://vault-dev.fpprod.corp'
     try:
-        data = {
-            # "secret_key": WINDOWS_SECRET_KEY,
-            # "csr": csr,
-            # "domain": domain,
-            # "template": template,
-            # "san": SAN,
-
-            'csr': csr,
-            'common_name':common_name,
-        }
-        headers = {
-            'Authorization': 'token'
-        }
         response = requests.post(
-            url='vaultproject.io/pki/sign-certificate/',
-            # url=f"{WINDOWS_URL}/submit",
+            # url=f'{vault_url}/v1/pki_intca/sign/fpprodcorp',
+            url=f'{vault_url}/v1/pki_intca/issue/fpprodcorp',
             verify=False,
             json=data,
+            headers=headers,
             # files={
             #     'data': (None, json.dumps(data), 'application/json'),
             #     'csr': ('csr_file', csr_file, 'application/octet-stream')
             # }
-            headers=headers,
         )
-
-        response = response.json()
+        return response.json()
     except requests.exceptions.ConnectionError as e:
         if settings.DEBUG and settings.MOCK_INTERMEDIARY_RESPONSE:
             test_cert_filepath = BASE_DIR / "fixtures" / "test_certificate.pem"
@@ -234,11 +237,42 @@ def signcert(request):
 
     csr_file = files.get("csr")
     csr = csr_file.read().decode()
-    intermediary_response = get_intermediary_response(csr, domain, template, SAN)
+    res = get_intermediary_response(csr, domain, template, SAN)
     try:
-        pem = intermediary_response["certificate"]
+        result = {
+            "request_id": res['request_id'],
+            "lease_id": res['lease_id'],
+            "renewable": res['renewable'],
+            "lease_duration": res['lease_duration'],
+            "wrap_info": res['wrap_info'],
+            "warnings": res['warnings'],
+            "auth": res['auth'],
+            "data": res['data'],
+            "ca_chain": res['data']['ca_chain'],
+            "certificate": res['data']['certificate'],
+            "expiration": res['data']['expiration'],
+            "issuing_ca": res['data']['issuing_ca'],
+            "private_key": res['data']['private_key'],
+            "private_key_type": res['data']['private_key_type'],
+            "serial_number": res['data']['serial_number'],
+        }
+        pem = result['certificate']
+        # from OpenSSL import crypto
+        # pyopenssl_cert = crypto.load_certificate(
+        #     crypto.FILETYPE_PEM,
+        #     res['data']['certificate'],
+        # )
+        # print(vars(pyopenssl_cert))
+        # text = crypto.dump_certificate(crypto.FILETYPE_TEXT, pyopenssl_cert)
+        # text = text.decode("utf-8")
+        # # print(text)
+        # from cryptography import x509
+        # from cryptography.hazmat.backends import default_backend
+        # from cryptography.hazmat.backends import openssl
+        # cryptography_cert = x509.load_pem_x509_certificate(res['data']['certificate'].encode("utf-8"), default_backend())
+        # # print(vars(cryptography_cert))
     except KeyError:
-        return HttpResponse(intermediary_response, status=500)
+        return HttpResponse(res, status=500)
     try:
         certificate_request = create_certificate_request(
             pem,

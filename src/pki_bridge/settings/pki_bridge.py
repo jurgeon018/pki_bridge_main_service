@@ -10,6 +10,7 @@ with open(BASE_DIR / "fixtures" / "cer.cer") as f:
 with open(BASE_DIR / "fixtures" / "chain.cer") as f:
     CHAIN = f.read()
 PORTS = config("PORTS", cast=Csv())
+VAULT_TOKEN = config("VAULT_TOKEN", cast=str)
 LDAP_USERNAME = config("LDAP_USERNAME", cast=str)
 LDAP_PASSWORD = config("LDAP_PASSWORD", cast=str)
 ALLOWED_REQUESTS = config("ALLOWED_REQUESTS", cast=int)

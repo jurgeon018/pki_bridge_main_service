@@ -18,6 +18,7 @@ class PkiFieldsMixin(models.Model):
     ldap_username = models.CharField(max_length=255)
     ldap_password = models.CharField(max_length=255)
 
+    vault_token = models.CharField(max_length=255)
     days_to_expire = models.PositiveIntegerField()
     scan_timeout = models.IntegerField()
     hosts_per_page = models.PositiveIntegerField(blank=True, null=True)
@@ -45,6 +46,7 @@ class PkiFieldsMixin(models.Model):
         self.enable_mail_notifications = settings.ENABLE_MAIL_NOTIFICATIONS
         self.validate_templates = settings.VALIDATE_TEMPLATES
         self.update_templates_from_ca = settings.UPDATE_TEMPLATES_FROM_CA
+        self.vault_token = settings.VAULT_TOKEN
         self.ldap_username = settings.LDAP_USERNAME
         self.ldap_password = settings.LDAP_PASSWORD
         self.scan_timeout = settings.SCAN_TIMEOUT
