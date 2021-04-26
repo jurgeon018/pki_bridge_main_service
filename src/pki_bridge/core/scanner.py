@@ -227,9 +227,9 @@ class NetworkScanner:
         scan_results = []
         threads = []
         hosts = Host.objects.filter(is_active=True)
-        per_page = db_settings.hosts_per_page
+        # per_page = db_settings.hosts_per_page
         # hosts = hosts[:5000]
-        # per_page = 100
+        per_page = 500
         if per_page:
             paginated_hosts = Paginator(hosts, per_page=per_page)
             page_numbers = paginated_hosts.page_range
@@ -269,9 +269,9 @@ class NetworkScanner:
         return scan_results
 
     def scan_host(self, host, port):
-        if self.verbosity > 1:
-            print()
-            print(f"INITIAL SCAN CREATION. {host.id}.{host.name}:{port}. {currentThread()}")
+        # if self.verbosity > 1:
+        #     print()
+        #     print(f"INITIAL SCAN CREATION. {host.id}.{host.name}:{port}. {currentThread()}")
         scan = HostScan.objects.create(
             host=host,
             port=port,
@@ -312,15 +312,16 @@ class NetworkScanner:
             return {
                 "error_message": msg,
             }
-        if self.verbosity > 1:
-            print(f"{host}:{port}. {currentThread()}")
-            print(pyopenssl_json_cert)
-            print()
+        # if self.verbosity > 1:
+        #     print(f"{host}:{port}. {currentThread()}")
+        #     print(pyopenssl_json_cert)
+        #     print()
         certificate = Certificate.objects.create(
             pem=pem,
         )
         scan.certificate = certificate
         scan.save()
+        print(db_settings.enable_mail_notifications)
         if db_settings.enable_mail_notifications:
             result = self.mail_admins(host, port, certificate, scan)
             return result
@@ -328,7 +329,9 @@ class NetworkScanner:
     def mail_admins(self, host, port, certificate, scan):
         # TODOv2: analytics: save to db which mail was sent
         link = get_obj_admin_link(scan)
-        if certificate.is_expired:
+        if True:
+        # if certificate.is_expired:
+            print('1')
             self.mail_admins_about_expired(host, port, certificate, scan, link)
         if certificate.valid_days_to_expire < host.days_to_expire:
             self.mail_admins_about_almost_expired(host, port, certificate, scan, link)

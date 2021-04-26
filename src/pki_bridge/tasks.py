@@ -13,7 +13,6 @@ def celery_scan_network_periodically():
 
 @shared_task(bind=True)
 def celery_scan_network(self):
-    # print(self)
     Scanner().scan_network()
 
 
