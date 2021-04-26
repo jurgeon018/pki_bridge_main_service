@@ -3,6 +3,7 @@
 media/
 !media/pki_bridge
 deploy_configs/
+static_root/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
