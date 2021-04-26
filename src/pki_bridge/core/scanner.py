@@ -84,8 +84,9 @@ class DbCertificatesScanner:
         threads = []
         scan_results = []
         scans = CertificateRequestScan.objects.all()
-        certificate_ids = scans.values_list("certificate_request__id", flat=True)
         certificates = CertificateRequest.objects.all()
+        # TODO: only exclude certificates which had provoked mail notification
+        certificate_ids = scans.values_list("certificate_request__id", flat=True)
         certificates = certificates.exclude(id__in=certificate_ids)
         per_page = db_settings.certificates_per_page
         if per_page:
@@ -321,7 +322,6 @@ class NetworkScanner:
         )
         scan.certificate = certificate
         scan.save()
-        print(db_settings.enable_mail_notifications)
         if db_settings.enable_mail_notifications:
             result = self.mail_admins(host, port, certificate, scan)
             return result
@@ -329,25 +329,29 @@ class NetworkScanner:
     def mail_admins(self, host, port, certificate, scan):
         # TODOv2: analytics: save to db which mail was sent
         link = get_obj_admin_link(scan)
-        if True:
-        # if certificate.is_expired:
-            print('1')
-            self.mail_admins_about_expired(host, port, certificate, scan, link)
+        results = []
+        if certificate.is_expired:
+            res = self.mail_admins_about_expired(host, port, certificate, scan, link)
+            results.append(res)
         if certificate.valid_days_to_expire < host.days_to_expire:
-            self.mail_admins_about_almost_expired(host, port, certificate, scan, link)
+            res = self.mail_admins_about_almost_expired(host, port, certificate, scan, link)
+            results.append(res)
         if certificate.is_self_signed:
-            self.mail_admins_about_self_signed(host, port, certificate, scan, link)
+            res = self.mail_admins_about_self_signed(host, port, certificate, scan, link)
+            results.append(res)
         if certificate.is_from_different_ca:
-            self.mail_admins_about_different_ca(host, port, certificate, scan, link)
+            res = self.mail_admins_about_different_ca(host, port, certificate, scan, link)
+            results.append(res)
 
     def mail_admins_about_expired(self, host, port, certificate, scan, link):
+        if self.verbosity > 1:
+            print('mail_admins_about_expired started', host)
         expiration_date = certificate.valid_till
         days = timezone.now() - expiration_date
         days = days.days
         recipient_list = [
             # "andrey.mendela@leonteq.com",
         ]
-        print(host.contacts)
         if host.contacts:
             recipient_list += [
                 host.contacts,
@@ -361,6 +365,8 @@ class NetworkScanner:
         )
 
     def mail_admins_about_almost_expired(self, host, port, certificate, scan, link):
+        if self.verbosity > 1:
+            print('mail_admins_about_almost_expired started', host)
         recipient_list = [
             # "andrey.mendela@leonteq.com",
         ]
@@ -377,6 +383,8 @@ class NetworkScanner:
         )
 
     def mail_admins_about_self_signed(self, host, port, certificate, scan, link):
+        if self.verbosity > 1:
+            print('mail_admins_about_self_signed started', host)
         recipient_list = [
             # "andrey.mendela@leonteq.com",
         ]
@@ -393,6 +401,8 @@ class NetworkScanner:
         )
 
     def mail_admins_about_different_ca(self, host, port, certificate, scan, link):
+        if self.verbosity > 1:
+            print('mail_admins_about_different_ca started', host)
         recipient_list = [
             # "andrey.mendela@leonteq.com",
         ]

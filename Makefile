@@ -1,19 +1,22 @@
 SHELL := /bin/bash
 .PHONY: venv tests 
 
-# api endpoints 
+# endpoints 
 
-curl_listtemplates:
-	curl http://127.0.0.1:8000/api/v1/listtemplates/
+scan_network:
+	python3 src/manage.py scan_network
 
 curl_pingca:
 	curl http://127.0.0.1:8000/api/v1/pingca/
 
+
 curl_trackurl:
 	curl \
-		-d '{"url": "https://myhost.fpprod.corp:8083/", "contacts": "name.surname@leonteq.com"}' \
+		-d '{"url": "myhost.fpprod.corp", "contacts": "name.surname@leonteq.com"}' \
 		-X POST -H "Content-Type: application/json" \
-		http://127.0.0.1:8000/api/v1/trackurl/
+		http://10.30.214.185:8015/api/v1/trackurl/
+		# http://127.0.0.1:8000/api/v1/trackurl/
+
 
 curl_listcommands:
 	curl http://127.0.0.1:8000/api/v1/listcommands/
@@ -21,22 +24,17 @@ curl_listcommands:
 curl_get_help:
 	curl http://127.0.0.1:8000/api/v1/get_help/listcommands/
 
-curl_submit:
-	curl \
-	http://127.0.0.1:5002/submit \
-	-d '{"secret_key": "windows_service_69018"}' \
-	-H 'Content-Type: application/json'
 
 curl_signcert:
 	curl \
 		-F "requester=andrey.mendela@leonteq.com" \
-		-F "template=LeonteqWebSrvManualEnroll" \
 		-F "SAN=altname1, altname2, altname3" \
 		-F "note=note test example" \
 		-F "env=env" \
 		-F "certformat=pem" \
 		-F "csr=@src/test_data/pki_test.csr" \
-		http://127.0.0.1:8000/api/v1/signcert/
+		http://10.30.214.185:8000/api/v1/signcert/
+		# http://127.0.0.1:8000/api/v1/signcert/
 
 curl_addnote:
 	curl \
@@ -55,46 +53,19 @@ curl_getcacert:
 
 
 curl_getintermediarycert:
+	curl http://127.0.0.1:8000/api/v1/getintermediarycert/?cert_format=pem
 	# curl http://127.0.0.1:8000/api/v1/getintermediarycert/?cert_format=text
-	curl http://127.0.0.1:8000/api/v1/getintermediarycert/?cert_format=json
+	# curl http://127.0.0.1:8000/api/v1/getintermediarycert/?cert_format=json
 
 
 curl_getcacertchain:
 	curl http://127.0.0.1:8000/api/v1/getcacertchain/?cert_format=text
 
 
+curl_listtemplates:
+	curl http://127.0.0.1:8000/api/v1/listtemplates/
+
 # management
-
-scan_network:
-	python3 src/manage.py scan_network
-
-gen_user:
-	# python3 src/manage.py shell -c "from pki_bridge.models import ProjectUser; ProjectUser.objects.create_superuser('admin', 'admin@example.com', 'admin')"
-	python3 src/manage.py gen_user
-
-gen_templates:
-	python3 src/manage.py gen_templates
-
-gen_commands:
-	python3 src/manage.py gen_commands
-
-gen_networks:
-	python3 src/manage.py gen_networks
-
-gen_hosts:
-	python3 src/manage.py gen_hosts
-
-gen_networks_json:
-	python3 src/manage.py gen_networks_json
-
-gen_allowed_cn:
-	python3 src/manage.py gen_allowed_cn
-
-gen_settings:
-	python3 src/manage.py gen_settings
-
-set_domain_name:
-	python3 src/manage.py set_domain_name -d chvirmendev01.fpprod.corp
 
 prep_db:
 	make rmdb
@@ -109,6 +80,10 @@ clear:
 	make rmmig
 	make mm
 	make m
+
+init:
+	make cp_env
+	make prep_db
 
 # django
 
@@ -162,9 +137,9 @@ run_celery_beat:
 # db 
 
 rmdb:
-	make delete_sqlite_db
-	# make delete_postgres_db
-	# make create_postgres_db
+	# make delete_sqlite_db
+	make delete_postgres_db
+	make create_postgres_db
 
 create_postgres_user:
 	sudo -u postgres psql -c "create user pki_bridge with password 'pki_bridge69018';"
@@ -220,3 +195,33 @@ coverage_run:
 
 coverage_report:
 	coverage report -m
+
+# management
+
+gen_user:
+	# python3 src/manage.py shell -c "from pki_bridge.models import ProjectUser; ProjectUser.objects.create_superuser('admin', 'admin@example.com', 'admin')"
+	python3 src/manage.py gen_user
+
+gen_templates:
+	python3 src/manage.py gen_templates
+
+gen_commands:
+	python3 src/manage.py gen_commands
+
+gen_networks:
+	python3 src/manage.py gen_networks
+
+gen_hosts:
+	python3 src/manage.py gen_hosts
+
+gen_networks_json:
+	python3 src/manage.py gen_networks_json
+
+gen_allowed_cn:
+	python3 src/manage.py gen_allowed_cn
+
+gen_settings:
+	python3 src/manage.py gen_settings
+
+set_domain_name:
+	python3 src/manage.py set_domain_name -d chvirmendev01.fpprod.corp

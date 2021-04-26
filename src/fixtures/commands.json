@@ -4,7 +4,7 @@
         "description": "There are different templates to use; they come with different attributes",
         "url": "/api/v1/listtemplates/",
         "allowed_requests": 30,
-        "is_active": true,
+        "is_active": false,
         "reset_period": 1
     },
     {

@@ -70,20 +70,17 @@ def gen_user(
 def update_templates(
     Template=Template,
 ):
-    WINDOWS_SCHEMA = config('WINDOWS_SCHEMA')
-    WINDOWS_HOST = config('WINDOWS_HOST')
-    WINDOWS_PORT = config('WINDOWS_PORT')
-    WINDOWS_URL = f'{WINDOWS_SCHEMA}://{WINDOWS_HOST}:{WINDOWS_PORT}'
-
-    try:
-        url = f'{WINDOWS_URL}/get_templates'
-        results = requests.get(url)
-        results = results.json()
-        results = results['results']
-    except Exception:
-        path = BASE_DIR / 'fixtures' / 'templates.txt'
-        with open(path) as f:
-            results = f.readlines()
+    # WINDOWS_SCHEMA = config('WINDOWS_SCHEMA')
+    # WINDOWS_HOST = config('WINDOWS_HOST')
+    # WINDOWS_PORT = config('WINDOWS_PORT')
+    # WINDOWS_URL = f'{WINDOWS_SCHEMA}://{WINDOWS_HOST}:{WINDOWS_PORT}'
+    # url = f'{WINDOWS_URL}/get_templates'
+    # results = requests.get(url)
+    # results = results.json()
+    # results = results['results']
+    path = BASE_DIR / 'fixtures' / 'templates.txt'
+    with open(path) as f:
+        results = f.readlines()
     for result in results:
         if result == '':
             continue

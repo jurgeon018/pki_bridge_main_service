@@ -194,8 +194,8 @@ class Converter:
         try:
             _subject_CN = subject_components[b"CN"].decode("utf-8")
             _issuer_CN = issuer_components[b"CN"].decode("utf-8")
-            assert _subject_CN == cert_subject.CN
-            assert _issuer_CN == cert_issuer.commonName
+            # assert _subject_CN == cert_subject.CN
+            # assert _issuer_CN == cert_issuer.commonName
         except KeyError as e:
             _subject_CN = None
             _issuer_CN = None
@@ -257,10 +257,10 @@ class Converter:
             attribute = list(rdn._attribute_set)[0]
             rdn_rfc4514 = rdn.rfc4514_string().split("=")
             code = rdn_rfc4514[0].replace(" ", "")
-            rdn_value = rdn_rfc4514[-1].replace(" ", "")
+            # rdn_value = rdn_rfc4514[-1].replace(" ", "")
             value = attribute.value.replace(" ", "")
             name = attribute.oid._name.replace(" ", "")
-            assert rdn_value == value
+            # assert rdn_value == value
             result[name] = {
                 "code": code,
                 "value": value,

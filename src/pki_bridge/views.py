@@ -43,8 +43,6 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
 BASE_DIR = settings.BASE_DIR
-WINDOWS_SECRET_KEY = settings.WINDOWS_SECRET_KEY
-WINDOWS_URL = settings.WINDOWS_URL
 
 logger = logging.getLogger(__name__)
 
@@ -110,10 +108,6 @@ def create_certificate_request(pem, requester_email, template, domain, SAN, csr,
         SAN=SAN,
         csr=csr,
         certificate=certificate,
-        # TODO v2: save "env" to db ??
-        # env=env,
-        # TODO v2: save "certformat" to db ??
-        # certformat=certformat,
     )
     if note:
         Note.objects.create(
@@ -134,7 +128,8 @@ def get_intermediary_response(csr, domain, template, SAN):
         # 'common_name': payload['common_name'],
         # "domain": domain,
         # "template": template,
-        "alt_names": SAN,
+
+        # "alt_names": SAN,
         'format': 'pem',
         'csr': csr,
         'common_name': 'vault-dev.fpprod.corp',
@@ -143,10 +138,11 @@ def get_intermediary_response(csr, domain, template, SAN):
         'X-Vault-Token': db_settings.vault_token,
     }
     vault_url = 'https://vault-dev.fpprod.corp'
+    vault_url = f'{vault_url}/v1/pki_intca/sign/fpprodcorp'
+    # vault_url = f'{vault_url}/v1/pki_intca/issue/fpprodcorp'
     try:
         response = requests.post(
-            # url=f'{vault_url}/v1/pki_intca/sign/fpprodcorp',
-            url=f'{vault_url}/v1/pki_intca/issue/fpprodcorp',
+            url=vault_url,
             verify=False,
             json=data,
             headers=headers,
@@ -196,10 +192,29 @@ def send_certificate_to_mail(requester_email, certificate_request):
         logger.error(msg)
 
 
+def print_certificate(res):
+    from OpenSSL import crypto
+    pyopenssl_cert = crypto.load_certificate(
+        crypto.FILETYPE_PEM,
+        res['data']['certificate'],
+    )
+    print(vars(pyopenssl_cert))
+    text = crypto.dump_certificate(crypto.FILETYPE_TEXT, pyopenssl_cert)
+    text = text.decode("utf-8")
+    print(text)
+    from cryptography import x509
+    from cryptography.hazmat.backends import default_backend
+    from cryptography.hazmat.backends import openssl
+    cryptography_cert = x509.load_pem_x509_certificate(res['data']['certificate'].encode("utf-8"), default_backend())
+    print(vars(cryptography_cert))
+
+
 @api_view(["POST"])
 def signcert(request):
-    default_domain = r"CHVIRPKIPRD103.fpprod.corp\Leonteq Class 3 Issuing CA"
-    default_template = "LeonteqWebSrvManualEnroll"
+    # default_domain = r"CHVIRPKIPRD103.fpprod.corp\Leonteq Class 3 Issuing CA"
+    # default_template = "LeonteqWebSrvManualEnroll"
+    default_domain = ""
+    default_template = ""
 
     query = request.data
     files = request.FILES
@@ -227,7 +242,7 @@ def signcert(request):
         return HttpResponse(template_rigths_error, status=400)
 
     templates = Template.objects.all().values_list("name", flat=True)
-    if template not in templates and not db_settings.allow_any_template:
+    if template not in templates and db_settings.validate_templates:
         response = "Invalid template specified. List of templates you can get from here: /api/v1/listtemplates/\n"
         return HttpResponse(response, status=400)
 
@@ -238,6 +253,7 @@ def signcert(request):
     csr_file = files.get("csr")
     csr = csr_file.read().decode()
     res = get_intermediary_response(csr, domain, template, SAN)
+    # print_certificate(res)
     try:
         result = {
             "request_id": res['request_id'],
@@ -252,27 +268,15 @@ def signcert(request):
             "certificate": res['data']['certificate'],
             "expiration": res['data']['expiration'],
             "issuing_ca": res['data']['issuing_ca'],
-            "private_key": res['data']['private_key'],
-            "private_key_type": res['data']['private_key_type'],
             "serial_number": res['data']['serial_number'],
+            # "private_key": res['data']['private_key'],
+            # "private_key_type": res['data']['private_key_type'],
         }
         pem = result['certificate']
-        # from OpenSSL import crypto
-        # pyopenssl_cert = crypto.load_certificate(
-        #     crypto.FILETYPE_PEM,
-        #     res['data']['certificate'],
-        # )
-        # print(vars(pyopenssl_cert))
-        # text = crypto.dump_certificate(crypto.FILETYPE_TEXT, pyopenssl_cert)
-        # text = text.decode("utf-8")
-        # # print(text)
-        # from cryptography import x509
-        # from cryptography.hazmat.backends import default_backend
-        # from cryptography.hazmat.backends import openssl
-        # cryptography_cert = x509.load_pem_x509_certificate(res['data']['certificate'].encode("utf-8"), default_backend())
-        # # print(vars(cryptography_cert))
-    except KeyError:
-        return HttpResponse(res, status=500)
+    except KeyError as e:
+        return HttpResponse(f'Key {e} doesnt exist in response.\n', status=500)
+    except Exception as e:
+        return HttpResponse(f'Error occured: {e}.\n', status=500)
     try:
         certificate_request = create_certificate_request(
             pem,
@@ -427,7 +431,7 @@ def listcommands(request):
 
 @api_view(["POST", "GET"])
 def get_help(request, command):
-    # TODO: descriptibe help for each command
+    # TODO: describe help for each command
     command = Command.objects.get(name=command)
     response = f"{command.description}\n"
     return HttpResponse(response)
