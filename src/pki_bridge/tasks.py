@@ -41,9 +41,3 @@ def celery_test_every_10_seconds():
 def celery_test(self):
     print(f'celery_test started in {datetime.now()}')
     return f'celery_test finished in {datetime.now()}'
-
-'''
-За55ц0кв123ч
-Зф55ц0кв123ч
-Pa55w0rd123x
-'''

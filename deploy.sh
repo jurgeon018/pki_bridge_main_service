@@ -7,7 +7,6 @@
 # sudo apt install python3-setuptools
 # sudo apt install python3-pip
 
-cd ~/projects/pki_bridge_main_service
 # project
 cp ./src/.env.example ./src/.env
 
